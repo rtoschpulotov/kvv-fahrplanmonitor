@@ -3,10 +3,12 @@
 #
 # Warum GitHub Actions und nicht mein eigener Rechner: Das Sammeln darf an
 # keinem Tag ausfallen, und mein Laptop ist nicht jeden Tag an. Neue Stände
-# landen als Release-Anhang, nicht im Git-Verlauf, weil 7 MB pro Stand das Repo
-# sonst innerhalb weniger Monate aufblähen würden. Ins Repo kommt nur das
-# Register als CSV. Der tägliche Commit hält nebenbei den Zeitplan am Leben,
-# den GitHub sonst nach 60 Tagen ohne Aktivität abschaltet.
+# landen als Release-Anhang, nicht im Git-Verlauf, weil 28,7 MB pro Stand das
+# Repo sonst innerhalb weniger Wochen aufblähen würden. Zu jeder ZIP hänge ich
+# das Manifest (JSON) mit an, damit die Landing Zone es ohne Auspacken lesen
+# kann. Ins Repo kommt nur das Register als CSV. Der tägliche Commit hält
+# nebenbei den Zeitplan am Leben, den GitHub sonst nach 60 Tagen ohne
+# Aktivität abschaltet.
 
 name: KVV-Snapshot sammeln
 
@@ -46,8 +48,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           datei="${{ steps.sammler.outputs.datei }}"
+          manifest="${{ steps.sammler.outputs.manifest }}"
           tag="snapshot-$(basename "$datei" .zip | sed 's/kvv_gtfs_//')"
-          gh release create "$tag" "$datei" \
+          gh release create "$tag" "$datei" "$manifest" \
             --title "KVV GTFS $tag" \
             --notes "Automatisch abgerufen von projekte.kvv-efa.de. Quelle: KVV über MobiData BW, Lizenz CC0."
 

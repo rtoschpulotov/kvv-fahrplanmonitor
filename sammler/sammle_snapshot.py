@@ -15,6 +15,11 @@ am Fahrplan etwas zu ändern, ändern sich trotzdem die Bytes (Zeitstempel im
 ZIP). Deshalb berechne ich zusätzlich einen Inhalts-Hash über die einzelnen
 GTFS-Dateien. Ob ein Stand neu ist, entscheide ich am Inhalts-Hash.
 
+Manifest (seit Phase 1):
+Zu jedem neuen Stand lege ich eine JSON-Datei mit gleichem Namen ab
+(kvv_gtfs_..._manifest.json). Sie listet jede GTFS-Datei mit Größe, SHA-256
+und Zeilenzahl. Die Rechnung dafür steht in sammler/manifest.py.
+
 Aufruf:
     python sammler/sammle_snapshot.py
     python sammler/sammle_snapshot.py --ziel data/raw --register data/snapshot_register.csv
@@ -23,7 +28,6 @@ Aufruf:
 import argparse
 import csv
 import hashlib
-import io
 import os
 import sys
 import time
@@ -32,6 +36,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
+
+from manifest import baue_manifest, inhalts_hash, lies_dateien, manifest_pfad, schreibe_manifest
 
 QUELL_URL = "https://projekte.kvv-efa.de/GTFS/google_transit.zip"
 
@@ -71,27 +77,23 @@ def lade_herunter(url: str, versuche: int = 3) -> requests.Response:
     raise RuntimeError(f"Download nach {versuche} Versuchen gescheitert: {letzter_fehler}")
 
 
-def pruefe_und_hashe(inhalt: bytes) -> tuple[str, int]:
+def pruefe_und_hashe(inhalt: bytes) -> tuple[str, list[dict]]:
     """Prüft, ob die ZIP ein brauchbarer GTFS-Feed ist, und berechnet den Inhalts-Hash.
 
     Der Inhalts-Hash entsteht aus Dateiname und SHA-256 jeder enthaltenen Datei,
     alphabetisch sortiert. Reihenfolge im ZIP und Pack-Zeitstempel spielen damit keine Rolle.
+    Die Angaben je Datei gebe ich mit zurück, sie landen im Manifest.
     """
-    with zipfile.ZipFile(io.BytesIO(inhalt)) as archiv:
-        namen = sorted(n for n in archiv.namelist() if not n.endswith("/"))
-        vorhanden = {Path(n).name for n in namen}
+    dateien = lies_dateien(inhalt)
+    vorhanden = {Path(d["name"]).name for d in dateien}
 
-        fehlend = PFLICHTDATEIEN - vorhanden
-        if fehlend:
-            raise ValueError(f"Pflichtdateien fehlen: {', '.join(sorted(fehlend))}")
-        if not (KALENDERDATEIEN & vorhanden):
-            raise ValueError("Weder calendar.txt noch calendar_dates.txt vorhanden")
+    fehlend = PFLICHTDATEIEN - vorhanden
+    if fehlend:
+        raise ValueError(f"Pflichtdateien fehlen: {', '.join(sorted(fehlend))}")
+    if not (KALENDERDATEIEN & vorhanden):
+        raise ValueError("Weder calendar.txt noch calendar_dates.txt vorhanden")
 
-        gesamt = hashlib.sha256()
-        for name in namen:
-            datei_hash = hashlib.sha256(archiv.read(name)).hexdigest()
-            gesamt.update(f"{name}:{datei_hash}\n".encode("utf-8"))
-        return gesamt.hexdigest(), len(namen)
+    return inhalts_hash(dateien), dateien
 
 
 def letzter_inhalts_hash(register: Path) -> str | None:
@@ -116,13 +118,14 @@ def schreibe_registerzeile(register: Path, zeile: dict) -> None:
         schreiber.writerow({spalte: zeile.get(spalte, "") for spalte in REGISTER_SPALTEN})
 
 
-def melde_an_github(status: str, dateipfad: str) -> None:
-    """Wenn das Skript in GitHub Actions läuft, gebe ich dem Workflow Status und Pfad weiter."""
+def melde_an_github(status: str, dateipfad: str, manifestpfad: str = "") -> None:
+    """Wenn das Skript in GitHub Actions läuft, gebe ich dem Workflow Status und Pfade weiter."""
     ausgabe = os.environ.get("GITHUB_OUTPUT")
     if ausgabe:
         with open(ausgabe, "a", encoding="utf-8") as f:
             f.write(f"status={status}\n")
             f.write(f"datei={dateipfad}\n")
+            f.write(f"manifest={manifestpfad}\n")
 
 
 def main() -> int:
@@ -140,7 +143,7 @@ def main() -> int:
     try:
         antwort = lade_herunter(args.url)
         inhalt = antwort.content
-        inhalts_hash, anzahl = pruefe_und_hashe(inhalt)
+        neuer_hash, dateien = pruefe_und_hashe(inhalt)
     except (RuntimeError, ValueError, zipfile.BadZipFile) as fehler:
         # Auch ein Fehlschlag kommt ins Register. Eine Lücke im Archiv soll später erklärbar sein.
         zeile.update(status="fehler", fehler=str(fehler)[:300])
@@ -150,19 +153,19 @@ def main() -> int:
         return 1
 
     zeile.update(
-        inhalts_hash=inhalts_hash,
+        inhalts_hash=neuer_hash,
         zip_hash=hashlib.sha256(inhalt).hexdigest(),
         groesse_bytes=len(inhalt),
         http_last_modified=antwort.headers.get("Last-Modified", ""),
         http_etag=antwort.headers.get("ETag", ""),
-        anzahl_dateien=anzahl,
+        anzahl_dateien=len(dateien),
     )
 
-    if inhalts_hash == letzter_inhalts_hash(register):
+    if neuer_hash == letzter_inhalts_hash(register):
         zeile["status"] = "unveraendert"
         schreibe_registerzeile(register, zeile)
         melde_an_github("unveraendert", "")
-        print(f"Unverändert seit letztem Stand ({inhalts_hash[:12]})")
+        print(f"Unverändert seit letztem Stand ({neuer_hash[:12]})")
         return 0
 
     # Dateiname mit Uhrzeit, falls ich an einem Tag zweimal einen neuen Stand erwische.
@@ -175,10 +178,22 @@ def main() -> int:
     temp.write_bytes(inhalt)
     temp.replace(zieldatei)
 
+    manifest = baue_manifest(
+        zip_inhalt=inhalt,
+        dateien=dateien,
+        zip_datei=dateiname,
+        abgerufen_utc=zeile["abgerufen_utc"],
+        quelle_url=args.url,
+        http_last_modified=zeile["http_last_modified"],
+        http_etag=zeile["http_etag"],
+    )
+    manifestdatei = manifest_pfad(zieldatei)
+    schreibe_manifest(manifest, manifestdatei)
+
     zeile.update(status="neu", dateiname=dateiname)
     schreibe_registerzeile(register, zeile)
-    melde_an_github("neu", str(zieldatei))
-    print(f"Neuer Stand abgelegt: {zieldatei} ({len(inhalt) / 1_000_000:.1f} MB, {inhalts_hash[:12]})")
+    melde_an_github("neu", str(zieldatei), str(manifestdatei))
+    print(f"Neuer Stand abgelegt: {zieldatei} ({len(inhalt) / 1_000_000:.1f} MB, {neuer_hash[:12]})")
     return 0
 
 
