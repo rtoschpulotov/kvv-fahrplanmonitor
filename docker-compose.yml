@@ -5,6 +5,12 @@
 # das Archiv so groß ist, dass Pandas nicht mehr reicht. Einen Scheduler-
 # Container gibt es nicht, weil das Sammeln in GitHub Actions läuft und nicht
 # davon abhängen soll, ob bei mir gerade Docker läuft.
+#
+# Beide Ports binde ich an 127.0.0.1. Ohne diese Angabe wären die Datenbanken
+# im ganzen Heimnetz erreichbar, und das brauche ich für ein lokales Projekt nicht.
+#
+# Achtung: "docker compose down -v" löscht die Volumes. Für MongoDB ist das
+# kein Verlust, die Landing Zone lässt sich aus Releases und Register neu laden.
 
 services:
   postgres:
@@ -12,7 +18,7 @@ services:
     container_name: kvv_postgres
     env_file: .env
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./sql:/docker-entrypoint-initdb.d:ro
@@ -26,9 +32,14 @@ services:
     container_name: kvv_mongo
     env_file: .env
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongodata:/data/db
+    healthcheck:
+      # ping geht auch ohne Anmeldung und sagt mir nur, ob der Server antwortet.
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      retries: 5
 
 volumes:
   pgdata:

@@ -1,0 +1,6 @@
+# Alles für Landing Zone und Auswertung. Der tägliche Sammel-Workflow
+# installiert nur requirements.txt und bleibt dadurch schnell.
+# Versionen sind die, mit denen ich die Landing Zone getestet habe.
+-r requirements.txt
+pymongo==4.19.0
+python-dotenv==1.2.3

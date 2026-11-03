@@ -45,15 +45,36 @@ pip install -r requirements.txt
 python sammler/sammle_snapshot.py
 ```
 
+## Manifest und Landing Zone
+
+Zu jedem neuen Stand legt der Sammler ein Manifest ab (`kvv_gtfs_..._manifest.json`) und hängt es mit an das Release. Es listet jede GTFS-Datei mit Größe, SHA-256 und Zeilenzahl. Damit sehe ich, *welche* Datei sich geändert hat, ohne 28,7 MB auszupacken.
+
+Lokal lade ich Releases und Register in MongoDB:
+
+```bash
+cp .env.example .env          # Passwörter eintragen
+make installieren             # pip install -r requirements-analyse.txt
+make start                    # PostgreSQL und MongoDB, nur auf 127.0.0.1
+make landing                  # Releases holen, Manifeste und Register in MongoDB
+make abfrage                  # welche Dateien haben sich je Stand geändert?
+```
+
+In MongoDB (Datenbank `kvv_landing`) liegen zwei Collections:
+
+- `snapshots`: ein Dokument je Stand, also das Manifest plus `release_tag` und `verarbeitet_am`
+- `abrufe`: jede Zeile aus dem Register, auch Tage ohne Änderung und Fehlschläge
+
+MongoDB ist eine abgeleitete Schicht. Die Wahrheit sind Register und Releases, und `make landing` baut alles jederzeit neu auf. Warum das so ist und warum der Schlüssel der Stand und nicht der Inhalts-Hash ist, steht in E7.
+
 ## Projektstruktur
 
 ```
-sammler/        Sammelskript
+sammler/        Sammelskript, Manifest, Laden der Landing Zone
 data/raw/       heruntergeladene Stände (nicht im Git, liegen in den Releases)
 data/           Snapshot-Register
 sql/            Schema und Abfragen für PostgreSQL (ab Phase 3)
 spark/          PySpark-Jobs (ab Phase 5)
-analyse/        Notebooks und Auswertungen
+analyse/        Notebooks und Auswertungen, z. B. geänderte Dateien je Stand
 docs/           Entscheidungsprotokoll
 ```
 
