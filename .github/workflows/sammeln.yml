@@ -1,0 +1,64 @@
+# Täglicher Abruf des KVV-GTFS-Stands.
+# Autor: Rustam T.
+#
+# Warum GitHub Actions und nicht mein eigener Rechner: Das Sammeln darf an
+# keinem Tag ausfallen, und mein Laptop ist nicht jeden Tag an. Neue Stände
+# landen als Release-Anhang, nicht im Git-Verlauf, weil 7 MB pro Stand das Repo
+# sonst innerhalb weniger Monate aufblähen würden. Ins Repo kommt nur das
+# Register als CSV. Der tägliche Commit hält nebenbei den Zeitplan am Leben,
+# den GitHub sonst nach 60 Tagen ohne Aktivität abschaltet.
+
+name: KVV-Snapshot sammeln
+
+on:
+  schedule:
+    - cron: "17 4 * * *"   # täglich 04:17 UTC, krumme Minute gegen die Lastspitze zur vollen Stunde
+  workflow_dispatch:        # manueller Start zum Testen
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sammeln
+  cancel-in-progress: false
+
+jobs:
+  sammeln:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Abhängigkeiten
+        run: pip install -r requirements.txt
+
+      - name: Snapshot abrufen
+        id: sammler
+        run: python sammler/sammle_snapshot.py --ziel data/raw --register data/snapshot_register.csv
+        continue-on-error: true   # die Fehlerzeile soll trotzdem ins Register committet werden
+
+      - name: Neuen Stand als Release ablegen
+        if: steps.sammler.outputs.status == 'neu'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          datei="${{ steps.sammler.outputs.datei }}"
+          tag="snapshot-$(basename "$datei" .zip | sed 's/kvv_gtfs_//')"
+          gh release create "$tag" "$datei" \
+            --title "KVV GTFS $tag" \
+            --notes "Automatisch abgerufen von projekte.kvv-efa.de. Quelle: KVV über MobiData BW, Lizenz CC0."
+
+      - name: Register committen
+        run: |
+          git config user.name "kvv-sammler"
+          git config user.email "kvv-sammler@users.noreply.github.com"
+          git add data/snapshot_register.csv
+          git commit -m "Snapshot-Register: ${{ steps.sammler.outputs.status || 'fehler' }} $(date -u +%F)" || echo "Nichts zu committen"
+          git push
+
+      - name: Lauf als fehlgeschlagen markieren, wenn der Abruf scheiterte
+        if: steps.sammler.outcome == 'failure'
+        run: exit 1

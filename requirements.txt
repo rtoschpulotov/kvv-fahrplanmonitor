@@ -1,0 +1,2 @@
+# Phase 0: nur das Sammelskript. Weitere Pakete kommen mit den jeweiligen Phasen dazu.
+requests>=2.31

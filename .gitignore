@@ -1,0 +1,10 @@
+# Rohdaten liegen als Release-Anhänge auf GitHub, nicht im Git-Verlauf
+data/raw/*
+!data/raw/.gitkeep
+*.zip.part
+
+.env
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/

@@ -1,0 +1,35 @@
+# Lokale Infrastruktur für die Verarbeitung.
+# Autor: Rustam T.
+#
+# Bewusst nur zwei Dienste für den Anfang. Spark kommt in Phase 5 dazu, wenn
+# das Archiv so groß ist, dass Pandas nicht mehr reicht. Einen Scheduler-
+# Container gibt es nicht, weil das Sammeln in GitHub Actions läuft und nicht
+# davon abhängen soll, ob bei mir gerade Docker läuft.
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: kvv_postgres
+    env_file: .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+
+  mongo:
+    image: mongo:7
+    container_name: kvv_mongo
+    env_file: .env
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+
+volumes:
+  pgdata:
+  mongodata:
