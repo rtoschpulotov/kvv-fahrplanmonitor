@@ -4,7 +4,7 @@
 
 ## Worum es geht
 
-Der Karlsruher Verkehrsverbund veröffentlicht seinen Soll-Fahrplan als GTFS-Datei und aktualisiert sie laut MobiData BW nahezu täglich. Alte Stände hält der KVV nicht vor. Ich lade deshalb seit dem [Startdatum eintragen] jeden Tag den aktuellen Stand herunter und baue daraus ein eigenes Archiv auf. Diesen Datensatz gibt es sonst nirgends.
+Der Karlsruher Verkehrsverbund veröffentlicht seinen Soll-Fahrplan als GTFS-Datei und aktualisiert sie laut MobiData BW nahezu täglich. Alte Stände hält der KVV nicht vor. Ich lade deshalb seit dem 2026-11-03 jeden Tag den aktuellen Stand herunter und baue daraus ein eigenes Archiv auf. Diesen Datensatz gibt es sonst nirgends.
 
 Zwei Fragen stehen im Mittelpunkt:
 
@@ -17,7 +17,7 @@ Technisch zeigt das Projekt vor allem eines: wie man Daten, die sich über die Z
 
 | Phase | Inhalt | Status |
 |---|---|---|
-| 0 | Sammelskript, täglicher Abruf mit Hash | läuft seit [Startdatum] |
+| 0 | Sammelskript, täglicher Abruf mit Hash | läuft seit 2026-11-03 |
 | 1 | Repo-Gerüst, Docker Compose, README-Entwurf | in Arbeit |
 | 2 | GTFS einlesen, Betriebstage auflösen, Bedienqualität | offen |
 | 3 | PostgreSQL-Modell mit SCD2-Dimensionen | offen |
@@ -61,7 +61,7 @@ docs/           Entscheidungsprotokoll
 
 Fahrplandaten: Karlsruher Verkehrsverbund, bereitgestellt über MobiData BW, Lizenz **CC0**. Es besteht keine Pflicht zur Namensnennung, ich nenne die Quelle trotzdem.
 
-Code: [Lizenz festlegen, z. B. MIT]
+Code: MIT, siehe LICENSE
 
 ## Entscheidungen
 

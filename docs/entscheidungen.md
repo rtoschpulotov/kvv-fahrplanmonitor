@@ -20,7 +20,7 @@ Mein Rechner ist nicht jeden Tag an. Ein lokaler Cronjob oder ein Scheduler-Cont
 
 ## E5: Release-Anhänge statt ZIPs im Git
 
-Bei rund 7 MB pro Stand und fast täglichen Änderungen wächst das Repo um etwa [Wert nach vier Wochen aus dem Register berechnen] MB im Monat. Git ist für große Binärdateien nicht gemacht, und jeder Klon würde das gesamte Archiv mitziehen. Release-Anhänge liegen am Repo, aber außerhalb des Verlaufs.
+Ein Stand ist rund 28,7 MB groß (erster echter Abruf am 2026-11-03: 28.714.561 Bytes, 12 Dateien). Ursprünglich hatte ich mit 7 MB gerechnet. Bei fast täglichen Änderungen wüchse das Repo damit um grob 850 MB im Monat. Git ist für große Binärdateien nicht gemacht, und jeder Klon würde das gesamte Archiv mitziehen. Release-Anhänge liegen am Repo, aber außerhalb des Verlaufs.
 
 ## E6: Betriebstage aus calendar und calendar_dates
 
