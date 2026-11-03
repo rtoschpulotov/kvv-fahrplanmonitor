@@ -9,6 +9,11 @@
 # Beide Ports binde ich an 127.0.0.1. Ohne diese Angabe wären die Datenbanken
 # im ganzen Heimnetz erreichbar, und das brauche ich für ein lokales Projekt nicht.
 #
+# Postgres liegt nach außen auf 5433, nicht 5432. Unter Windows ist 5432 oft
+# gesperrt, weil Hyper-V den Bereich reserviert oder schon ein lokaler Postgres
+# läuft. Innen bleibt der Container bei 5432, Verbindungen aus dem Container
+# ändern sich also nicht.
+#
 # Achtung: "docker compose down -v" löscht die Volumes. Für MongoDB ist das
 # kein Verlust, die Landing Zone lässt sich aus Releases und Register neu laden.
 
@@ -18,7 +23,7 @@ services:
     container_name: kvv_postgres
     env_file: .env
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./sql:/docker-entrypoint-initdb.d:ro
