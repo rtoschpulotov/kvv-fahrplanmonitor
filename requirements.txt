@@ -1,2 +1,4 @@
-# Phase 0: nur das Sammelskript. Weitere Pakete kommen mit den jeweiligen Phasen dazu.
-requests>=2.31
+# Nur das Sammelskript. Die Version ist festgeschrieben, damit der tägliche
+# Workflow nicht irgendwann über ein Update stolpert und reproduzierbar bleibt.
+# Pakete für die Auswertung stehen in requirements-analyse.txt.
+requests==2.32.3
