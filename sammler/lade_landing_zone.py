@@ -49,7 +49,7 @@ from pymongo import ASCENDING, MongoClient, UpdateOne
 
 from manifest import baue_manifest, lies_dateien, manifest_pfad, schreibe_manifest
 
-STANDARD_REPO = "rtoschpulotov/kvv-fahrplanmonitor-"
+STANDARD_REPO = "rtoschpulotov/kvv-fahrplanmonitor"
 QUELL_URL = "https://projekte.kvv-efa.de/GTFS/google_transit.zip"
 ZIP_PRAEFIX = "kvv_gtfs_"
 
