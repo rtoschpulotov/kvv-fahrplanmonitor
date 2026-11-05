@@ -89,7 +89,7 @@ Die Schulferien selbst stehen nicht im Feed, aber die wegfallenden Schulbusse si
 
 ### Abgleich mit der KVV-Fahrplanauskunft (Aufgabe C3)
 
-[Offen. Drei Haltestellen, die ich persönlich kenne, für einen Stichtag mit kvv.de vergleichen und Abweichungen hier eintragen.]
+[Offen. Drei Haltestellen, die ich persönlich kenne, für einen Stichtag mit kvv.de vergleichen und Abweichungen hier eintragen. Eine davon sollte Graben-Neudorf Bahnhof sein, um die Lücke bei den DB-Zügen zu beziffern (E11).]
 
 ### Fünf Fahrten von Hand (Aufgabe A5)
 
@@ -108,6 +108,38 @@ Mit `analyse/bedienqualitaet.py`, Kennzahlen nach E10.
 Alle 2.078 Stationen kommen irgendwann im Fahrplanhalbjahr vor. Am Stichtag-Dienstag fährt an 117 von ihnen gar nichts ab, am Sonntag an 721.
 
 **Gleiche Zahl, anderer Takt:** 165 Stationen haben am Dienstag zwischen 8 und 9 Uhr genau sechs Abfahrten. Bei Neureut-Heide oder Knielingen Nord kommen sie im 10-Minuten-Takt (erwartete Wartezeit 5,0 Minuten). In Kürnbach Flehinger Straße liegen sie so ungleich, dass man im Schnitt 18,1 Minuten wartet und die längste Lücke 26 Minuten dauert. Die reine Zahl der Abfahrten hätte beide gleich bewertet.
+
+## Gemeinden
+
+Zuordnung nach E11 mit der VG250-EW (Stand 31.12.2025).
+
+- 2.065 von 2.078 Stationen liegen in einer deutschen Gemeinde. Die übrigen 13 liegen im Elsass.
+- Im Kerngebiet (vier Kreise, 57 Gemeinden, 1.052.186 Einwohner) liegen 1.768 Stationen. Jede der 57 Gemeinden hat mindestens eine.
+
+### Abfahrten je 1.000 Einwohner, Di 10.11.2026
+
+| | Gemeinde | Einwohner | Abfahrten | je 1.000 EW |
+|---|---|---:|---:|---:|
+| meiste | Baden-Baden | 56.952 | 13.184 | 231,5 |
+| | Karlsruhe | 309.247 | 66.882 | 216,3 |
+| | Ettlingen | 38.557 | 7.418 | 192,4 |
+| wenigste | Muggensturm | 6.103 | 58 | 9,5 |
+| | Ötigheim | 5.004 | 75 | 15,0 |
+| | Bietigheim | 6.473 | 138 | 21,3 |
+
+Das untere Ende ist nicht so eindeutig, wie es aussieht:
+
+- **Ötigheim und Bietigheim** haben je 34 Abfahrten der S7 und S8 am Tag, dazu Busse. Das ist wenig im Verhältnis zur Einwohnerzahl, aber plausibel.
+- **Muggensturm** hat nur 6 Abfahrten der S71 und S81 und dazu Busse mit dem Namen "SEV S7/S71". SEV heißt Schienenersatzverkehr. Vermutlich ist die Strecke am Stichtag wegen einer Baustelle gesperrt oder eingeschränkt. Dann wäre der Wert eine Momentaufnahme und kein Dauerzustand. [Mit der Fahrplanauskunft und den Baustellenmeldungen des KVV prüfen.]
+- **Bad Schönborn (38,5) und Philippsburg (41,6)** haben im Feed gar keine Zugabfahrt. Beide liegen nach meinem Kenntnisstand an Strecken der S-Bahn Rhein-Neckar, die die DB fährt (E11).
+
+22 der 57 Gemeinden im Kerngebiet haben im Feed keine einzige Abfahrt einer Bahn. Bei manchen stimmt das einfach, Bühlertal oder Loffenau haben keinen Bahnanschluss. Bei anderen wie Graben-Neudorf, Waghäusel oder Karlsdorf-Neuthard fehlen die DB-Züge im Datensatz.
+
+### Ohne Abfahrt nach 20 Uhr
+
+Am Werktag gibt es im Kerngebiet nur eine Gemeinde ohne Abfahrt zwischen 20 und 4 Uhr: **Graben-Neudorf**, letzte Abfahrt 19:40. Am Sonntag sind es acht: Philippsburg, Bad Schönborn, Graben-Neudorf, Oberhausen-Rheinhausen, Dettenheim, Kronau, Au am Rhein und Steinmauern. Sechs davon haben am Sonntag im KVV-Feed überhaupt keine Abfahrt.
+
+Bis auf Steinmauern und Au am Rhein liegen alle in der Hardt nördlich von Karlsruhe. Für Graben-Neudorf ist das sicher ein Datenbefund und kein Ortsbefund: Der Bahnhof ist S-Bahn-Knoten, steht aber gar nicht im Feed. [Für die übrigen Gemeinden beim Abgleich klären, ob sonntags DB-Züge oder Rufbusse anderer Anbieter fahren.]
 
 ## Stichtage für die erste Auswertung
 

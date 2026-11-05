@@ -18,8 +18,8 @@ Technisch zeigt das Projekt vor allem eines: wie man Daten, die sich über die Z
 | Phase | Inhalt | Status |
 |---|---|---|
 | 0 | Sammelskript, täglicher Abruf mit Hash | läuft seit 2026-11-03 |
-| 1 | Repo-Gerüst, Docker Compose, README-Entwurf | in Arbeit |
-| 2 | GTFS einlesen, Betriebstage auflösen, Bedienqualität | offen |
+| 1 | Repo-Gerüst, Docker Compose, README-Entwurf | fertig |
+| 2 | GTFS einlesen, Betriebstage auflösen, Bedienqualität | erste Ergebnisse, Abgleich mit der Fahrplanauskunft offen |
 | 3 | PostgreSQL-Modell mit SCD2-Dimensionen | offen |
 | 4 | Diff-Logik zwischen Ständen, Fahrplanstabilität | offen |
 | 5 | PySpark für das wachsende Archiv | offen |
@@ -66,6 +66,22 @@ In MongoDB (Datenbank `kvv_landing`) liegen zwei Collections:
 
 MongoDB ist eine abgeleitete Schicht. Die Wahrheit sind Register und Releases, und `make landing` baut alles jederzeit neu auf. Warum das so ist und warum der Schlüssel der Stand und nicht der Inhalts-Hash ist, steht in E7.
 
+## Erste Ergebnisse: Bedienqualität
+
+Aus dem Stand vom 04.11.2026, ausgewertet für drei Stichtage (Di 10.11., Sa 14.11., So 15.11.2026). Die Rechnung steht im Notebook [notebooks/ebene1_bedienqualitaet.ipynb](notebooks/ebene1_bedienqualitaet.ipynb), die Zahlen und Prüfungen in [docs/befunde.md](docs/befunde.md).
+
+**Gleich viele Abfahrten heißt nicht gleich gut angebunden.** Zwischen 8 und 9 Uhr haben am Dienstag 165 Haltestellen genau sechs Abfahrten. Nur an 9 davon fahren sie im sauberen 10-Minuten-Takt, und man wartet im Schnitt fünf Minuten. An 20 wartet man im Schnitt zehn Minuten oder länger, im Extremfall 18, weil die Abfahrten gebündelt kommen. Deshalb messe ich neben der Zahl der Abfahrten die erwartete Wartezeit (E10).
+
+![Erwartete Wartezeit bei sechs Abfahrten pro Stunde](docs/grafiken/sechs_abfahrten.png)
+
+**Am Wochenende wartet man länger.** An einer typischen Haltestelle sind es werktags tagsüber 10 bis 14 Minuten, samstags und sonntags fast durchgehend 15.
+
+![Erwartete Wartezeit über den Tag](docs/grafiken/wartezeit_tagesverlauf.png)
+
+**Pro Kopf liegen Baden-Baden und Karlsruhe vorn** mit über 200 Abfahrten je 1.000 Einwohner und Werktag. Am unteren Ende ist Vorsicht geboten. Muggensturm hat am Stichtag fast nur Schienenersatzverkehr, und in Orten wie Bad Schönborn oder Graben-Neudorf fehlen die Züge der DB, weil der KVV-Feed sie nicht enthält (E11). Dort zeigt die Karte eher, was im Datensatz fehlt, als wie gut der Ort angebunden ist. Das prüfe ich noch gegen die Fahrplanauskunft.
+
+![Abfahrten je 1.000 Einwohner](docs/grafiken/abfahrten_je_einwohner.png)
+
 ## Projektstruktur
 
 ```
@@ -74,13 +90,17 @@ data/raw/       heruntergeladene Stände (nicht im Git, liegen in den Releases)
 data/           Snapshot-Register
 sql/            Schema und Abfragen für PostgreSQL (ab Phase 3)
 spark/          PySpark-Jobs (ab Phase 5)
-analyse/        Notebooks und Auswertungen, z. B. geänderte Dateien je Stand
-docs/           Entscheidungsprotokoll
+analyse/        Python-Module: GTFS lesen, Betriebstage, Bedienqualität, Gemeinden
+notebooks/      Auswertungen mit Grafiken (Ebene 1)
+tests/          pytest für die Betriebstag-Logik und die Kennzahlen
+docs/           Entscheidungsprotokoll, Befunde, Grafiken
 ```
 
 ## Daten und Lizenz
 
 Fahrplandaten: Karlsruher Verkehrsverbund, bereitgestellt über MobiData BW, Lizenz **CC0**. Es besteht keine Pflicht zur Namensnennung, ich nenne die Quelle trotzdem.
+
+Gemeindegrenzen und Einwohnerzahlen: © BKG (2026) [dl-de/by-2-0](https://www.govdata.de/dl-de/by-2-0), Datenquellen: https://sgx.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf. Verwendet wird die VG250-EW (Stand 31.12.2025), zugeschnitten auf die Gemeinden des KVV-Kerngebiets. Die Einwohnerzahlen darin stammen von Destatis. Die Datei liegt wegen ihrer Größe nicht im Repo. Für das Notebook wird sie von [gdz.bkg.bund.de](https://gdz.bkg.bund.de) geladen und neben das Repo nach `geodaten/` gelegt, oder der Pfad steht in der Umgebungsvariable `KVV_GEODATEN`. Lizenz und Stand geprüft am 05.11.2026.
 
 Code: MIT, siehe LICENSE
 
