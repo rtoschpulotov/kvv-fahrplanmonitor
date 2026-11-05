@@ -69,7 +69,8 @@ Ich rechne trotzdem mit Mitternacht. Es betrifft zwei Tage im Jahr, im aktuellen
 - Der letzte Halt einer Fahrt ist keine Abfahrt. Ich bestimme ihn über die höchste stop_sequence, weil der KVV ihn fast nie als "kein Einstieg" markiert.
 - Halte mit pickup_type 1 (kein Einstieg) zählen nicht.
 - Halte ohne Uhrzeit zählen nicht. Das betrifft einen einzigen Halt im ganzen Feed.
-- **Halte mit pickup_type 2 (Einstieg nach telefonischer Anmeldung) zählen mit.** Man kann dort einsteigen, und im ländlichen Teil des KVV sind Rufbusse oft das einzige Angebot am Abend. Würde ich sie weglassen, sähen genau diese Gemeinden schlechter versorgt aus, als sie sind. Die Spalte pickup_type bleibt erhalten, damit ich sie in der Auswertung getrennt ausweisen kann. Am Di 10.11.2026 sind das 5.266 von 163.037 Abfahrten.
+- **Hält eine Fahrt mehrmals direkt hintereinander an derselben Station, ist das eine Abfahrt.** Das passiert, wenn ein Bus an der Endhaltestelle den Bahnsteig wechselt oder eine Schleife fährt, zum Beispiel Linie 55 am Kühler Krug: erst Bahnsteig 1, dann Bahnsteig 2 ohne Einstieg, dann wieder Bahnsteig 1. Ich zähle nur den letzten Halt der Folge, an dem man einsteigen kann, denn dann fährt der Bus wirklich los. Kommt eine Fahrt dagegen später noch einmal an dieselbe Station zurück (Ringlinie), sind das zwei echte Abfahrten. Gefunden habe ich das erst bei der Handprüfung von fünf Fahrten. Im Stand vom 04.11.2026 stehen gut 55.000 solcher Doppelhalte in 35.000 Fahrten. Am Di 10.11.2026 sinkt die Zahl der Abfahrten dadurch von 163.037 auf 161.790.
+- **Halte mit pickup_type 2 (Einstieg nach telefonischer Anmeldung) zählen mit.** Man kann dort einsteigen, und im ländlichen Teil des KVV sind Rufbusse oft das einzige Angebot am Abend. Würde ich sie weglassen, sähen genau diese Gemeinden schlechter versorgt aus, als sie sind. Die Spalte pickup_type bleibt erhalten, damit ich sie in der Auswertung getrennt ausweisen kann. Am Di 10.11.2026 sind das 5.266 von 161.790 Abfahrten.
 
 **Kalenderzeit statt Betriebstagszeit.** Eine Abfahrt um 25:10:00 am Betriebstag D zähle ich am Kalendertag D+1 um 01:10 Uhr, weil Fahrgäste die Uhr sehen und nicht den Betriebstag. Den Betriebstag behalte ich als eigene Spalte, weil Phase 4 ihn für den Vergleich zwischen Ständen braucht.
 
@@ -83,7 +84,7 @@ Ich weise ihn trotzdem aus, ergänze aber zwei Kennzahlen, die die Verteilung se
 - **Größter Abstand:** das längste Stück der Stunde ohne Abfahrt.
 - **Erwartete Wartezeit:** Ein Fahrgast kommt zu einem zufälligen Zeitpunkt in der Stunde und wartet bis zur nächsten Abfahrt, auch wenn die erst in der nächsten Stunde liegt. Im Durchschnitt über die Stunde ist das beim 10-Minuten-Takt 5 Minuten, bei sechs Abfahrten im Pulk und dann 55 Minuten Pause gut 25 Minuten.
 
-Dass das kein theoretischer Unterschied ist, zeigt der Stand vom 04.11.2026: Am Di 10.11. haben 165 Stationen in der Stunde ab 8 Uhr genau sechs Abfahrten. Ihre erwartete Wartezeit liegt zwischen 5,0 und 18,1 Minuten.
+Dass das kein theoretischer Unterschied ist, zeigt der Stand vom 04.11.2026: Am Di 10.11. haben 166 Stationen in der Stunde ab 8 Uhr genau sechs Abfahrten. Ihre erwartete Wartezeit liegt zwischen 5,0 und 18,1 Minuten.
 
 **Deckel bei 60 Minuten.** Jede einzelne Wartezeit zähle ich höchstens mit 60 Minuten. Ohne Deckel bekäme eine Station mit einer Abfahrt um 01:04 und der nächsten um 22:27 für die Stunde ab 1 Uhr über 19 Stunden Wartezeit. Das ist keine Wartezeit mehr, sondern kein Angebot, und es würde jeden Mittelwert zerstören. 60 heißt bei mir: in dieser Stunde praktisch keine Verbindung.
 

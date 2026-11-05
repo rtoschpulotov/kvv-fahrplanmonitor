@@ -152,3 +152,30 @@ def test_fahrt_ohne_betriebstag_erzeugt_keine_abfahrt():
     st = stop_times(("T", "A1", 1, "08:00:00", 0), ("T", "C", 2, "08:10:00", 0))
     tage = betriebstage(WERKTAGE, ausnahmen(), "2026-11-07", "2026-11-08")  # Wochenende
     assert len(abfahrten(st, TRIPS, STOPS, tage)) == 0
+
+
+def test_mehrere_halte_an_derselben_station_sind_eine_abfahrt():
+    # Wie Linie 55 am Kühler Krug: Bahnsteig A1, dann "kein Einstieg" an A2,
+    # dann wieder A1. Für Fahrgäste ist das eine Abfahrt, um 08:01.
+    st = stop_times(("T", "A1", 1, "08:00:00", 0), ("T", "A2", 2, "08:00:00", 1),
+                    ("T", "A1", 3, "08:01:00", 0), ("T", "B", 4, "08:05:00", 0), ("T", "C", 5, "08:10:00", 0))
+    tage = betriebstage(WERKTAGE, ausnahmen(), "2026-11-02", "2026-11-02")
+    erg = abfahrten(st, TRIPS, STOPS, tage)
+    assert erg["station_id"].tolist() == ["A", "B"]
+    assert erg.loc[erg["station_id"] == "A", "zeitpunkt"].iloc[0] == pd.Timestamp("2026-11-02 08:01")
+
+
+def test_ringlinie_zaehlt_beide_besuche():
+    # A, B, wieder A, dann C: A wird zweimal angefahren, mit B dazwischen
+    st = stop_times(("T", "A1", 1, "08:00:00", 0), ("T", "B", 2, "08:05:00", 0),
+                    ("T", "A2", 3, "08:10:00", 0), ("T", "C", 4, "08:15:00", 0))
+    tage = betriebstage(WERKTAGE, ausnahmen(), "2026-11-02", "2026-11-02")
+    erg = abfahrten(st, TRIPS, STOPS, tage)
+    assert erg["station_id"].tolist() == ["A", "B", "A"]
+
+
+def test_doppelhalt_am_fahrtende_ist_keine_abfahrt():
+    st = stop_times(("T", "B", 1, "08:00:00", 0), ("T", "A1", 2, "08:05:00", 0), ("T", "A2", 3, "08:06:00", 0))
+    tage = betriebstage(WERKTAGE, ausnahmen(), "2026-11-02", "2026-11-02")
+    erg = abfahrten(st, TRIPS, STOPS, tage)
+    assert erg["station_id"].tolist() == ["B"]

@@ -116,21 +116,35 @@ def abfahrten(stop_times: pd.DataFrame, trips: pd.DataFrame, stops: pd.DataFrame
     einsteigen kann (E9):
     - der letzte Halt einer Fahrt zählt nicht, dort steigt man nur aus,
     - pickup_type 1 (kein Einstieg) zählt nicht,
-    - ein Halt ohne Uhrzeit zählt nicht (kommt im KVV-Feed einmal vor).
+    - ein Halt ohne Uhrzeit zählt nicht (kommt im KVV-Feed einmal vor),
+    - hält eine Fahrt mehrmals direkt hintereinander an derselben Station
+      (Bahnsteigwechsel, Wendeschleife), ist das eine einzige Abfahrt, und
+      zwar die letzte dieser Folge, an der man einsteigen kann. Gefunden bei
+      der Handprüfung von fünf Fahrten (befunde.md, Aufgabe A5).
     """
-    st = stop_times
-    # Letzter Halt je Fahrt: höchste stop_sequence. transform gibt den Wert an
-    # jede Zeile der Fahrt zurück, so kann ich direkt vergleichen.
+    stationen = station_je_halt(stops)
+    st = stop_times.sort_values(["trip_id", "stop_sequence"]).copy()
+    st["station_id"] = st["stop_id"].astype(str).map(stationen)
+
+    # Folgen gleicher Station innerhalb einer Fahrt erkennen. Eine neue Folge
+    # beginnt, wenn sich die Fahrt oder die Station gegenüber der Zeile davor
+    # ändert. cumsum macht daraus eine laufende Nummer je Folge.
+    neue_folge = (st["trip_id"] != st["trip_id"].shift()) | (st["station_id"] != st["station_id"].shift())
+    st["folge"] = neue_folge.cumsum()
+
+    # Letzter Halt je Fahrt: höchste stop_sequence. Enthält eine Folge den
+    # letzten Halt, ist die ganze Folge das Fahrtende (zum Beispiel erst
+    # Ankunft am Bussteig, dann Abstellplatz) und keine Abfahrt.
     letzter = st.groupby("trip_id", observed=True)["stop_sequence"].transform("max")
+    endfolge = st.loc[st["stop_sequence"] == letzter, "folge"]
     pickup = st["pickup_type"].fillna(0)
-    behalten = (st["stop_sequence"] != letzter) & (pickup != 1) & st["departure_time"].notna()
-    st = st.loc[behalten, ["trip_id", "stop_id", "stop_sequence", "departure_time", "pickup_type"]].copy()
+    behalten = (~st["folge"].isin(endfolge)) & (pickup != 1) & st["departure_time"].notna()
+    st = st.loc[behalten]
+    # Je Folge nur die letzte Zeile, die übrig ist
+    st = st.drop_duplicates("folge", keep="last")
+    st = st[["trip_id", "stop_id", "station_id", "stop_sequence", "departure_time", "pickup_type"]].copy()
     st["abfahrt_sek"] = gtfs_zeit_in_sekunden(st["departure_time"])
     st = st.drop(columns="departure_time")
-
-    # Halt -> Station
-    stationen = station_je_halt(stops)
-    st["station_id"] = st["stop_id"].astype(str).map(stationen)
 
     # Fahrt -> service_id -> Betriebstage. Erst hier wird aus "Fahrt X fährt
     # nach Plan Y" eine Zeile pro tatsächlichem Tag.

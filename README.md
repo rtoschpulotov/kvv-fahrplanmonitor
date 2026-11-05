@@ -70,7 +70,7 @@ MongoDB ist eine abgeleitete Schicht. Die Wahrheit sind Register und Releases, u
 
 Aus dem Stand vom 04.11.2026, ausgewertet für drei Stichtage (Di 10.11., Sa 14.11., So 15.11.2026). Die Rechnung steht im Notebook [notebooks/ebene1_bedienqualitaet.ipynb](notebooks/ebene1_bedienqualitaet.ipynb), die Zahlen und Prüfungen in [docs/befunde.md](docs/befunde.md).
 
-**Gleich viele Abfahrten heißt nicht gleich gut angebunden.** Zwischen 8 und 9 Uhr haben am Dienstag 165 Haltestellen genau sechs Abfahrten. Nur an 9 davon fahren sie im sauberen 10-Minuten-Takt, und man wartet im Schnitt fünf Minuten. An 20 wartet man im Schnitt zehn Minuten oder länger, im Extremfall 18, weil die Abfahrten gebündelt kommen. Deshalb messe ich neben der Zahl der Abfahrten die erwartete Wartezeit (E10).
+**Gleich viele Abfahrten heißt nicht gleich gut angebunden.** Zwischen 8 und 9 Uhr haben am Dienstag 166 Haltestellen genau sechs Abfahrten. Nur an 10 davon fahren sie im sauberen 10-Minuten-Takt, und man wartet im Schnitt fünf Minuten. An 20 wartet man im Schnitt zehn Minuten oder länger, im Extremfall 18, weil die Abfahrten gebündelt kommen. Deshalb messe ich neben der Zahl der Abfahrten die erwartete Wartezeit (E10).
 
 ![Erwartete Wartezeit bei sechs Abfahrten pro Stunde](docs/grafiken/sechs_abfahrten.png)
 

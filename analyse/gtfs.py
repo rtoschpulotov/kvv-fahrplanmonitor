@@ -68,12 +68,16 @@ def lies_stop_times(zip_pfad: Path) -> pd.DataFrame:
         )
 
 
-def lies_stand(zip_pfad: Path) -> dict:
-    """Die Tabellen, die ich für Betriebstage und Abfahrten brauche."""
+def lies_stand(zip_pfad: Path, trips_spalten=("route_id", "service_id", "trip_id")) -> dict:
+    """Die Tabellen, die ich für Betriebstage und Abfahrten brauche.
+
+    Von trips.txt lese ich standardmäßig nur drei Spalten. Wer mehr braucht
+    (etwa trip_headsign zum Nachschlagen), gibt sie an.
+    """
     return {
         "calendar": lies_tabelle(zip_pfad, "calendar.txt"),
         "calendar_dates": lies_tabelle(zip_pfad, "calendar_dates.txt"),
-        "trips": lies_tabelle(zip_pfad, "trips.txt", spalten=["route_id", "service_id", "trip_id"]),
+        "trips": lies_tabelle(zip_pfad, "trips.txt", spalten=list(trips_spalten)),
         "routes": lies_tabelle(zip_pfad, "routes.txt"),
         "stops": lies_tabelle(zip_pfad, "stops.txt"),
         "feed_info": lies_tabelle(zip_pfad, "feed_info.txt"),

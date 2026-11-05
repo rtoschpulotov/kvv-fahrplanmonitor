@@ -93,7 +93,19 @@ Die Schulferien selbst stehen nicht im Feed, aber die wegfallenden Schulbusse si
 
 ### Fünf Fahrten von Hand (Aufgabe A5)
 
-[Offen. Fünf zufällige trip_id mit Linie, Haltestellenfolge und Uhrzeiten nachvollziehen.]
+Fünf zufällige Fahrten, je eine Linie, die am Di 10.11.2026 fahren, gezogen mit `python analyse/nachschlagen.py zufall` (fester Startwert):
+
+| Linie | Strecke | Auffällig |
+|---|---|---|
+| 55 | Kühler Krug bis Hauptbahnhof | Kühler Krug dreimal hintereinander, einmal ohne Einstieg |
+| 103s | Malsch Hans-Thoma-Schule bis Waldprechtsweier | keine Richtungsangabe |
+| S5 | Wörth Badepark bis Pforzheim Hbf | gilt nur vom 03.11. bis 10.11.2026, Lücke in der stop_sequence |
+| 70 | Heidehof bis Entenfang | Heidehof zweimal, einmal ohne Einstieg |
+| 125s | Spöck bis Bruchsal | Spöck Richard-Hecht-Schule zweimal hintereinander |
+
+**Folge für die Auswertung:** Drei von fünf Fahrten halten mehrmals direkt hintereinander an derselben Station. Mein Code hatte das als mehrere Abfahrten gezählt. Seit der Korrektur (E9) zählt eine solche Folge einmal. Im ganzen Feed betraf das gut 55.000 Zeilen, am Dienstag 10.11. waren es 1.247 Abfahrten zu viel. Die Lücke in der stop_sequence bei der S5 ist erlaubt, GTFS verlangt nur eine aufsteigende Reihenfolge.
+
+[Meine eigenen Notizen zu den fünf Fahrten ergänzen.]
 
 ## Takt und Wartezeit
 
@@ -101,13 +113,13 @@ Mit `analyse/bedienqualitaet.py`, Kennzahlen nach E10.
 
 | Stichtag | Abfahrten | Stationen mit Abfahrt | Erwartete Wartezeit 6 bis 20 Uhr (Median über Station und Stunde) |
 |---|---:|---:|---:|
-| Di 10.11.2026 | 163.037 | 1.961 | 10,2 min |
-| Sa 14.11.2026 | 108.335 | 1.577 | 15,0 min |
-| So 15.11.2026 | 80.204 | 1.357 | 15,0 min |
+| Di 10.11.2026 | 161.790 | 1.961 | 10,2 min |
+| Sa 14.11.2026 | 107.311 | 1.577 | 15,0 min |
+| So 15.11.2026 | 79.582 | 1.357 | 15,0 min |
 
 Alle 2.078 Stationen kommen irgendwann im Fahrplanhalbjahr vor. Am Stichtag-Dienstag fährt an 117 von ihnen gar nichts ab, am Sonntag an 721.
 
-**Gleiche Zahl, anderer Takt:** 165 Stationen haben am Dienstag zwischen 8 und 9 Uhr genau sechs Abfahrten. Bei Neureut-Heide oder Knielingen Nord kommen sie im 10-Minuten-Takt (erwartete Wartezeit 5,0 Minuten). In Kürnbach Flehinger Straße liegen sie so ungleich, dass man im Schnitt 18,1 Minuten wartet und die längste Lücke 26 Minuten dauert. Die reine Zahl der Abfahrten hätte beide gleich bewertet.
+**Gleiche Zahl, anderer Takt:** 166 Stationen haben am Dienstag zwischen 8 und 9 Uhr genau sechs Abfahrten. Bei Neureut-Heide oder Knielingen Nord kommen sie im 10-Minuten-Takt (erwartete Wartezeit 5,0 Minuten). In Kürnbach Flehinger Straße liegen sie so ungleich, dass man im Schnitt 18,1 Minuten wartet und die längste Lücke 26 Minuten dauert. Die reine Zahl der Abfahrten hätte beide gleich bewertet.
 
 ## Gemeinden
 
@@ -121,7 +133,7 @@ Zuordnung nach E11 mit der VG250-EW (Stand 31.12.2025).
 | | Gemeinde | Einwohner | Abfahrten | je 1.000 EW |
 |---|---|---:|---:|---:|
 | meiste | Baden-Baden | 56.952 | 13.184 | 231,5 |
-| | Karlsruhe | 309.247 | 66.882 | 216,3 |
+| | Karlsruhe | 309.247 | 65.740 | 212,6 |
 | | Ettlingen | 38.557 | 7.418 | 192,4 |
 | wenigste | Muggensturm | 6.103 | 58 | 9,5 |
 | | Ötigheim | 5.004 | 75 | 15,0 |
@@ -137,7 +149,7 @@ Das untere Ende ist nicht so eindeutig, wie es aussieht:
 
 ### Ohne Abfahrt nach 20 Uhr
 
-Am Werktag gibt es im Kerngebiet nur eine Gemeinde ohne Abfahrt zwischen 20 und 4 Uhr: **Graben-Neudorf**, letzte Abfahrt 19:40. Am Sonntag sind es acht: Philippsburg, Bad Schönborn, Graben-Neudorf, Oberhausen-Rheinhausen, Dettenheim, Kronau, Au am Rhein und Steinmauern. Sechs davon haben am Sonntag im KVV-Feed überhaupt keine Abfahrt.
+Am Werktag gibt es im Kerngebiet nur eine Gemeinde ohne Abfahrt zwischen 20 und 4 Uhr: **Graben-Neudorf**, letzte Abfahrt 19:40. Am Sonntag sind es acht: Philippsburg, Bad Schönborn, Graben-Neudorf, Oberhausen-Rheinhausen, Dettenheim, Kronau, Au am Rhein und Steinmauern. Sieben davon haben am Sonntag im KVV-Feed überhaupt keine Abfahrt, nur Bad Schönborn hat welche bis 19:15.
 
 Bis auf Steinmauern und Au am Rhein liegen alle in der Hardt nördlich von Karlsruhe. Für Graben-Neudorf ist das sicher ein Datenbefund und kein Ortsbefund: Der Bahnhof ist S-Bahn-Knoten, steht aber gar nicht im Feed. [Für die übrigen Gemeinden beim Abgleich klären, ob sonntags DB-Züge oder Rufbusse anderer Anbieter fahren.]
 
@@ -153,4 +165,4 @@ Vorschlag, noch zu bestätigen:
 
 Begründung: kein Feiertag, keine Schulferien, weit weg von der Zeitumstellung am 25.10.2026 (E8), und alle drei liegen nach dem Abruf des Stands. Es wird also der Plan ausgewertet, den der KVV zu diesem Zeitpunkt für die Zukunft veröffentlicht hat.
 
-Am Di 10.11.2026 gibt es 163.037 Abfahrten nach Kalenderzeit. 3.228 davon gehören noch zum Betriebstag 09.11., fahren also nach Mitternacht. Ohne die Umrechnung würden sie dem falschen Tag zugeschlagen.
+Am Di 10.11.2026 gibt es 161.790 Abfahrten nach Kalenderzeit. 3.192 davon gehören noch zum Betriebstag 09.11., fahren also nach Mitternacht. Ohne die Umrechnung würden sie dem falschen Tag zugeschlagen.
