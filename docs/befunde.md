@@ -95,6 +95,20 @@ Die Schulferien selbst stehen nicht im Feed, aber die wegfallenden Schulbusse si
 
 [Offen. Fünf zufällige trip_id mit Linie, Haltestellenfolge und Uhrzeiten nachvollziehen.]
 
+## Takt und Wartezeit
+
+Mit `analyse/bedienqualitaet.py`, Kennzahlen nach E10.
+
+| Stichtag | Abfahrten | Stationen mit Abfahrt | Erwartete Wartezeit 6 bis 20 Uhr (Median über Station und Stunde) |
+|---|---:|---:|---:|
+| Di 10.11.2026 | 163.037 | 1.961 | 10,2 min |
+| Sa 14.11.2026 | 108.335 | 1.577 | 15,0 min |
+| So 15.11.2026 | 80.204 | 1.357 | 15,0 min |
+
+Alle 2.078 Stationen kommen irgendwann im Fahrplanhalbjahr vor. Am Stichtag-Dienstag fährt an 117 von ihnen gar nichts ab, am Sonntag an 721.
+
+**Gleiche Zahl, anderer Takt:** 165 Stationen haben am Dienstag zwischen 8 und 9 Uhr genau sechs Abfahrten. Bei Neureut-Heide oder Knielingen Nord kommen sie im 10-Minuten-Takt (erwartete Wartezeit 5,0 Minuten). In Kürnbach Flehinger Straße liegen sie so ungleich, dass man im Schnitt 18,1 Minuten wartet und die längste Lücke 26 Minuten dauert. Die reine Zahl der Abfahrten hätte beide gleich bewertet.
+
 ## Stichtage für die erste Auswertung
 
 Vorschlag, noch zu bestätigen:

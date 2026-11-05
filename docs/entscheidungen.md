@@ -73,3 +73,20 @@ Ich rechne trotzdem mit Mitternacht. Es betrifft zwei Tage im Jahr, im aktuellen
 
 **Kalenderzeit statt Betriebstagszeit.** Eine Abfahrt um 25:10:00 am Betriebstag D zähle ich am Kalendertag D+1 um 01:10 Uhr, weil Fahrgäste die Uhr sehen und nicht den Betriebstag. Den Betriebstag behalte ich als eigene Spalte, weil Phase 4 ihn für den Vergleich zwischen Ständen braucht.
 
+
+## E10: Gleichmäßigkeit über die erwartete Wartezeit messen
+
+Die Aufgabenstellung verlangt neben den Abfahrten je Stunde den mittleren Abstand zwischen zwei Abfahrten. Beim Umsetzen ist mir aufgefallen, dass der mittlere Abstand nichts Neues sagt: Sechs Abfahrten in einer Stunde haben immer einen mittleren Abstand von zehn Minuten, egal ob sie im 10-Minuten-Takt kommen oder alle sechs zwischen 08:00 und 08:05. Er ist einfach 60 geteilt durch die Zahl der Abfahrten.
+
+Ich weise ihn trotzdem aus, ergänze aber zwei Kennzahlen, die die Verteilung sehen:
+
+- **Größter Abstand:** das längste Stück der Stunde ohne Abfahrt.
+- **Erwartete Wartezeit:** Ein Fahrgast kommt zu einem zufälligen Zeitpunkt in der Stunde und wartet bis zur nächsten Abfahrt, auch wenn die erst in der nächsten Stunde liegt. Im Durchschnitt über die Stunde ist das beim 10-Minuten-Takt 5 Minuten, bei sechs Abfahrten im Pulk und dann 55 Minuten Pause gut 25 Minuten.
+
+Dass das kein theoretischer Unterschied ist, zeigt der Stand vom 04.11.2026: Am Di 10.11. haben 165 Stationen in der Stunde ab 8 Uhr genau sechs Abfahrten. Ihre erwartete Wartezeit liegt zwischen 5,0 und 18,1 Minuten.
+
+**Deckel bei 60 Minuten.** Jede einzelne Wartezeit zähle ich höchstens mit 60 Minuten. Ohne Deckel bekäme eine Station mit einer Abfahrt um 01:04 und der nächsten um 22:27 für die Stunde ab 1 Uhr über 19 Stunden Wartezeit. Das ist keine Wartezeit mehr, sondern kein Angebot, und es würde jeden Mittelwert zerstören. 60 heißt bei mir: in dieser Stunde praktisch keine Verbindung.
+
+**Nach der letzten Abfahrt des Tages** zählt nichts mehr. Wer um 23:30 nach der letzten Bahn kommt, bekommt keine Wartezeit, die Stunde hat dafür weniger abgedeckte Minuten.
+
+**Einschränkung:** Ich rechne über alle Linien und Richtungen einer Station zusammen. Für jemanden, der in eine bestimmte Richtung will, ist das zu optimistisch. Eine Auswertung je Richtung wäre genauer, braucht aber eine Definition von Richtung über Linien hinweg, die GTFS nicht liefert.
