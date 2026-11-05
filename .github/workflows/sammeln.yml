@@ -9,12 +9,18 @@
 # kann. Ins Repo kommt nur das Register als CSV. Der tägliche Commit hält
 # nebenbei den Zeitplan am Leben, den GitHub sonst nach 60 Tagen ohne
 # Aktivität abschaltet.
+#
+# Zwei Zeitpläne, weil GitHub geplante Läufe bei hoher Last um Stunden
+# verschiebt oder ganz auslässt (04.11.2026: 12:08 statt 04:17 UTC). Der
+# Nachmittagslauf ist die Absicherung. Hat der Morgenlauf den Stand schon
+# geholt, schreibt er nur eine Zeile "unveraendert" ins Register.
 
 name: KVV-Snapshot sammeln
 
 on:
   schedule:
     - cron: "17 4 * * *"   # täglich 04:17 UTC, krumme Minute gegen die Lastspitze zur vollen Stunde
+    - cron: "43 15 * * *"  # Absicherung 15:43 UTC, falls der Morgenlauf ausfällt
   workflow_dispatch:        # manueller Start zum Testen
 
 permissions:
