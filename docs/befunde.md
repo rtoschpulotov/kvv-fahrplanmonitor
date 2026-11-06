@@ -89,7 +89,19 @@ Die Schulferien selbst stehen nicht im Feed, aber die wegfallenden Schulbusse si
 
 ### Abgleich mit der KVV-Fahrplanauskunft (Aufgabe C3)
 
-[Offen. Drei Haltestellen, die ich persönlich kenne, für einen Stichtag mit kvv.de vergleichen und Abweichungen hier eintragen. Eine davon sollte Graben-Neudorf Bahnhof sein, um die Lücke bei den DB-Zügen zu beziffern (E11).]
+Am 06.11.2026 habe ich für Dienstag, 10.11.2026, ab 07:00 Uhr den Abfahrtsmonitor auf kvv.de abgerufen und Zeile für Zeile mit meinen Abfahrten aus dem Stand vom 04.11.2026 verglichen (`python analyse/nachschlagen.py tafel`). Zwei Haltestellen kenne ich persönlich, die dritte habe ich wegen der Lücke bei den DB-Zügen gewählt.
+
+| Haltestelle | Zeitfenster | Feed | kvv.de | Ergebnis |
+|---|---|---:|---:|---|
+| Oberreut Badeniaplatz | 07:00 bis 08:59 | 18 | 18 | alle Abfahrten identisch, Uhrzeit, Linie und Richtung |
+| Karlsruhe Yorckstraße | 07:00 bis 07:29 | 35 | 35 | alle Abfahrten identisch, Uhrzeit und Linie |
+| Graben-Neudorf | 07:00 bis 08:59 | 14 | 32 | alle 14 Busse identisch, 18 Züge fehlen im Feed |
+
+**Wo der Feed vollständig ist, stimmt er auf die Minute.** Auch die baustellenbedingten Umleitungen (Linie 4 mit "SEV ab Hirtenweg", Linie 2 nach Knielingen Nord) stehen in beiden gleich. Das spricht dafür, dass meine Betriebstag-Logik und die Umrechnung auf Kalenderzeit richtig arbeiten.
+
+**In Graben-Neudorf fehlen mehr als die Hälfte der Abfahrten.** Zwischen 7 und 9 Uhr fahren dort laut kvv.de 15 S-Bahnen (S33, S6, S9) und 3 Regionalexpresse (RE4). Keiner dieser Züge steht im KVV-Feed, und den Bahnhof selbst gibt es dort nicht als Haltestelle. Die Lücke aus E11 ist damit belegt und beziffert: In diesem Fenster sind es 18 von 32 Abfahrten, also 56 %. Für Gemeinden an DB-Strecken unterschätzt meine Auswertung das Angebot deutlich.
+
+Die gespeicherten Seiten von kvv.de liegen nicht im Repo, weil es fremde Inhalte sind. Ich habe sie lokal aufbewahrt.
 
 ### Fünf Fahrten von Hand (Aufgabe A5)
 
@@ -105,7 +117,12 @@ Fünf zufällige Fahrten, je eine Linie, die am Di 10.11.2026 fahren, gezogen mi
 
 **Folge für die Auswertung:** Drei von fünf Fahrten halten mehrmals direkt hintereinander an derselben Station. Mein Code hatte das als mehrere Abfahrten gezählt. Seit der Korrektur (E9) zählt eine solche Folge einmal. Im ganzen Feed betraf das gut 55.000 Zeilen, am Dienstag 10.11. waren es 1.247 Abfahrten zu viel. Die Lücke in der stop_sequence bei der S5 ist erlaubt, GTFS verlangt nur eine aufsteigende Reihenfolge.
 
-[Meine eigenen Notizen zu den fünf Fahrten ergänzen.]
+Was ich aus den fünf Fahrten mitnehme:
+
+- **Linie 55, Kühler Krug:** Die drei Halte sind die Bussteige A, C und B. Der Bus startet an A, fährt durch die Wendeanlage an C vorbei (dort kein Einstieg) und fährt an B ab. Für Fahrgäste ist das eine Abfahrt.
+- **103s und 125s:** Die 125s fährt nie am Wochenende und fällt in den Sommerferien und in den Herbstferien (26. bis 30.10.2026) aus. Das "s" steht deshalb sehr wahrscheinlich für Schülerverkehr. Ungeklärt ist, warum sie auch vom 13. bis 29.07.2026 fehlt, also vor Beginn der Sommerferien.
+- **S5 mit einer Woche Gültigkeit:** Der KVV bildet Baustellen über eigene, kurze Fahrplanvarianten ab. Für die S5 gibt es mehrere solcher Pakete. Das passt zum Hinweis "Bauarbeiten im VBK-Netz (Phase 5)" auf kvv.de. Für Phase 4 heißt das: Viele Änderungen zwischen zwei Ständen werden Baustellen sein, nicht dauerhafte Fahrplanänderungen.
+- **Linie 70:** Die Fahrzeit von 16 Minuten zwischen Heidehof und Entenfang kann ich aus eigener Ortskenntnis nicht beurteilen.
 
 ## Takt und Wartezeit
 
@@ -151,7 +168,7 @@ Das untere Ende ist nicht so eindeutig, wie es aussieht:
 
 Am Werktag gibt es im Kerngebiet nur eine Gemeinde ohne Abfahrt zwischen 20 und 4 Uhr: **Graben-Neudorf**, letzte Abfahrt 19:40. Am Sonntag sind es acht: Philippsburg, Bad Schönborn, Graben-Neudorf, Oberhausen-Rheinhausen, Dettenheim, Kronau, Au am Rhein und Steinmauern. Sieben davon haben am Sonntag im KVV-Feed überhaupt keine Abfahrt, nur Bad Schönborn hat welche bis 19:15.
 
-Bis auf Steinmauern und Au am Rhein liegen alle in der Hardt nördlich von Karlsruhe. Für Graben-Neudorf ist das sicher ein Datenbefund und kein Ortsbefund: Der Bahnhof ist S-Bahn-Knoten, steht aber gar nicht im Feed. [Für die übrigen Gemeinden beim Abgleich klären, ob sonntags DB-Züge oder Rufbusse anderer Anbieter fahren.]
+Bis auf Steinmauern und Au am Rhein liegen alle in der Hardt nördlich von Karlsruhe. Für Graben-Neudorf ist das sicher ein Datenbefund und kein Ortsbefund: Laut kvv.de fahren dort zwischen 7 und 9 Uhr 18 Züge, die im Feed fehlen (siehe Abgleich oben). [Für die übrigen Gemeinden beim Abgleich klären, ob sonntags DB-Züge oder Rufbusse anderer Anbieter fahren.]
 
 ## Stichtage für die erste Auswertung
 

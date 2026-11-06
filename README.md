@@ -19,7 +19,7 @@ Technisch zeigt das Projekt vor allem eines: wie man Daten, die sich über die Z
 |---|---|---|
 | 0 | Sammelskript, täglicher Abruf mit Hash | läuft seit 2026-11-03 |
 | 1 | Repo-Gerüst, Docker Compose, README-Entwurf | fertig |
-| 2 | GTFS einlesen, Betriebstage auflösen, Bedienqualität | erste Ergebnisse, Abgleich mit der Fahrplanauskunft offen |
+| 2 | GTFS einlesen, Betriebstage auflösen, Bedienqualität | fertig |
 | 3 | PostgreSQL-Modell mit SCD2-Dimensionen | offen |
 | 4 | Diff-Logik zwischen Ständen, Fahrplanstabilität | offen |
 | 5 | PySpark für das wachsende Archiv | offen |
@@ -78,7 +78,7 @@ Aus dem Stand vom 04.11.2026, ausgewertet für drei Stichtage (Di 10.11., Sa 14.
 
 ![Erwartete Wartezeit über den Tag](docs/grafiken/wartezeit_tagesverlauf.png)
 
-**Pro Kopf liegen Baden-Baden und Karlsruhe vorn** mit über 200 Abfahrten je 1.000 Einwohner und Werktag. Am unteren Ende ist Vorsicht geboten. Muggensturm hat am Stichtag fast nur Schienenersatzverkehr, und in Orten wie Bad Schönborn oder Graben-Neudorf fehlen die Züge der DB, weil der KVV-Feed sie nicht enthält (E11). Dort zeigt die Karte eher, was im Datensatz fehlt, als wie gut der Ort angebunden ist. Das prüfe ich noch gegen die Fahrplanauskunft.
+**Pro Kopf liegen Baden-Baden und Karlsruhe vorn** mit über 200 Abfahrten je 1.000 Einwohner und Werktag. Am unteren Ende ist Vorsicht geboten. Muggensturm hat am Stichtag fast nur Schienenersatzverkehr, und in Orten wie Bad Schönborn oder Graben-Neudorf fehlen die Züge der DB, weil der KVV-Feed sie nicht enthält (E11). Dort zeigt die Karte eher, was im Datensatz fehlt, als wie gut der Ort angebunden ist. Der Abgleich mit kvv.de belegt das: In Graben-Neudorf fehlen zwischen 7 und 9 Uhr 18 von 32 Abfahrten. Wo der Feed vollständig ist, stimmt er dagegen auf die Minute.
 
 ![Abfahrten je 1.000 Einwohner](docs/grafiken/abfahrten_je_einwohner.png)
 
