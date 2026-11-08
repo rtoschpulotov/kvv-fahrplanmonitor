@@ -1,7 +1,7 @@
 # Die Befehle, die ich am häufigsten brauche.
 # Autor: Rustam T.
 
-.PHONY: start stopp status installieren landing abfrage test profil laden pruefen
+.PHONY: start stopp status installieren landing abfrage test profil laden pruefen aenderungen
 
 start:
 	docker compose up -d
@@ -32,10 +32,15 @@ test:
 profil:
 	python analyse/profil.py $(STAND)
 
-# Alle noch nicht geladenen Stände ins Sternschema (Phase 3). Darf beliebig oft laufen.
+# Alle noch nicht geladenen Stände ins Sternschema (Phase 3), danach die
+# Änderungen zwischen den Ständen (Phase 4). Darf beliebig oft laufen.
 laden:
 	python laden/lade_postgres.py
 
 # Nur die Prüfabfragen auf das Sternschema
 pruefen:
 	python laden/lade_postgres.py --nur-pruefen
+
+# Nur die Änderungen zwischen Ständen nachladen (Phase 4)
+aenderungen:
+	python laden/lade_aenderungen.py

@@ -221,3 +221,59 @@ Die 161.790 sind dieselbe Zahl wie in Phase 2 (Stichtage oben), dort direkt mit 
 ### Größe
 
 Ein Stand mit 14 Tagen Horizont sind rund 663.000 Faktzeilen und gut 60 MB (E13). Laden dauert je Stand etwa 45 Sekunden, fast alles davon ist die Abfahrten-Logik aus Phase 2.
+
+## Phase 4: Änderungen zwischen den Ständen
+
+Verglichen sind die vier Paare aus den fünf Ständen vom 03. bis 07.11.2026. Alle sechs Prüfabfragen (vier aus Phase 3, zwei neue) sind leer. Die Zahlen sind vorläufig, weil vier Paare für Aussagen über Linien und Wochentage nicht reichen.
+
+### Überblick
+
+| Paar | Fahrten im Fenster (alt) | Änderungen | davon geändert | Anteil | trip_ids nur alt | trip_ids nur neu |
+|---|---:|---:|---:|---:|---:|---:|
+| 03.11. → 04.11. | 372.559 | 0 | 0 | 0,00 % | 0 | 0 |
+| 04.11. → 05.11. | 360.925 | 305 | 173 | 0,05 % | 73 | 2.742 |
+| 05.11. → 06.11. | 349.694 | 1.083 | 918 | 0,26 % | 70 | 186 |
+| 06.11. → 07.11. | 341.503 | 497 | 419 | 0,12 % | 319 | 48 |
+
+"Änderungen" zählt alle Zeilen in `fakt_aenderung`, also auch neue Fahrten und Tage, die dazukommen. "Davon geändert" zählt nur alte Fahrten, die nicht mehr so fahren wie vorher (E17). Die trip_id-Spalten zählen verschiedene trip_ids, keine Instanzen.
+
+**03.11. → 04.11. ohne Änderung.** Der Inhalts-Hash unterscheidet sich, die Fahrten nicht. Geändert waren nur Felder ohne Bedeutung für Fahrgäste, unter anderem `block_id`. Das ist die Gegenprobe aus der Aufgabe, im echten Archiv: zwei Stände, die sich unterscheiden, und null Änderungen im Fahrplan.
+
+### Was sich geändert hat
+
+| Paar | Was | Wo |
+|---|---|---|
+| 04.11. → 05.11. | Umplanung der S41, S42, S31 und S8 vom 11. bis 21.11., verteilt auf alle Arten | Kraichgau und Neckartal (Bad Wimpfen, Bad Rappenau, Bad Friedrichshall) |
+| 04.11. → 05.11. | 23 neue Ersatzbusfahrten SEV S31/S32 am 22. und 23.11. | |
+| 05.11. → 06.11. | Linie 164 fährt ab 16.11. über die neue Station Ruit Lerchenweg, 871 Fahrten mit anderem Halteverlauf | Bretten |
+| 05.11. → 06.11. | 114 neue Fahrten der Linie M am Wochenende 14./15.11. | |
+| 05.11. → 06.11. | zwei frühe SEV S7/S71 am 10.11. um 5:05 und 5:18 | Rastatt bis Bühl |
+| 06.11. → 07.11. | Umleitung der Linien 44 und 47 ab 30.11. zurückgenommen, 389 Fahrten wieder mit dem normalen Halteverlauf | Karlsruhe |
+| 06.11. → 07.11. | 48 neue Ersatzbusfahrten SEV S41/S42 vom 11. bis 16.11. | |
+
+Die zwei SEV-Fahrten am 10.11. sind dieselben 14 Abfahrten, die in Phase 3 beim Vergleich der Faktentabelle aufgefallen waren (zwei Fahrten mit je sieben Abfahrten, am letzten Halt nur Ankunft). Zwei unabhängige Wege, ein Ergebnis.
+
+### trip_id gegen Fahrtschlüssel
+
+Am 05.11. bekamen 2.742 Fahrten eine neue trip_id. Echte Änderungen gab es 305, der Rest war neu nummeriert. Am 07.11. ist es umgekehrt: Alle 110 trip_ids, mit denen die Linien 44 und 47 wieder normal fahren, gab es schon im alten Stand, sie fuhren dort nur an anderen Tagen. Ein Abgleich über trip_id hätte die 389 Änderungen nicht gesehen. Begründung des eigenen Schlüssels in E15.
+
+### Kurzfristigkeit
+
+| Vorlauf | Änderungen |
+|---|---:|
+| am selben Tag | 0 |
+| am Vortag | 0 |
+| 2 bis 7 Tage | 37 |
+| 8 bis 14 Tage | 576 |
+| 15 bis 28 Tage | 792 |
+| mehr als 28 Tage | 480 |
+
+Kein Abruf ist bisher fehlgeschlagen, die Messung ist also auf einen Tag genau.
+
+### Was sonst auffiel
+
+- **Doppelte Schlüssel.** Je Stand rund 1.000 Fahrt-Instanzen (0,3 %) mit gleichem Schlüssel, aufgelöst über eine laufende Nummer (E15).
+- **Sekunden.** Rund 730.000 von 3,1 Millionen Zeiten haben Sekunden ungleich null. Die Schwelle von 60 Sekunden ist deshalb nötig. Es gab bisher nur drei echte Zeitänderungen, alle am 05.11.
+- **Erste Abfahrt verschoben.** Einmal erschien eine Fahrt als "entfallen" und "neu", weil sich ihre erste Abfahrt verschoben hatte. Das ist die bekannte Grenze des Schlüssels (E15).
+- **Umpacken.** Bisher hat der KVV die ZIP nie neu gepackt, ohne dass sich der Inhalt geändert hat. Von neun erfolgreichen Abrufen hatten vier neuen Inhalt, fünf waren unverändert.
+- **Laufzeit.** Je Standpaar etwa 20 Sekunden, fast alles davon ist Einlesen und Auflösen der Betriebstage.

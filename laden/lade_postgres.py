@@ -88,18 +88,19 @@ def verbinde() -> psycopg.Connection:
 
 
 def spiele_schema_ein(conn: psycopg.Connection, ordner: Path = SQL_ORDNER) -> None:
-    """Führt sql/0*.sql in Reihenfolge aus.
+    """Führt sql/01_*.sql bis sql/99_*.sql in Reihenfolge aus.
 
     Der Container macht das nur beim allerersten Start mit leerem Volume.
     Mein Volume stammt aus Phase 1, also spiele ich die Dateien hier ein.
     Jede Datei darf beliebig oft laufen.
     """
-    for datei in sorted(ordner.glob("0*.sql")):
+    for datei in sorted(ordner.glob("[0-9][0-9]_*.sql")):
         conn.execute(datei.read_text(encoding="utf-8"))
 
 
 def schema_fehlt(conn: psycopg.Connection) -> bool:
-    return conn.execute("SELECT to_regclass('v_pruefung') IS NULL").fetchone()[0]
+    # Die zuletzt angelegte Sicht. Fehlt sie, ist mindestens eine Datei neu.
+    return conn.execute("SELECT to_regclass('v_pruefung_standfolge') IS NULL").fetchone()[0]
 
 
 # ---------------------------------------------------------------- Stände finden
@@ -307,6 +308,7 @@ def main() -> int:
     parser.add_argument("--schema", action="store_true", help="sql/ auch dann einspielen, wenn das Schema schon da ist")
     parser.add_argument("--nur-pruefen", action="store_true")
     parser.add_argument("--ohne-mongo", action="store_true")
+    parser.add_argument("--ohne-aenderungen", action="store_true", help="Phase 4 (Standvergleich) auslassen")
     args = parser.parse_args()
 
     with verbinde() as conn:
@@ -332,6 +334,10 @@ def main() -> int:
                 info = lade_stand(conn, s, gemeinden, args.horizont)
                 print(f"{s['stand_id']}: Tage {info['von']} bis {info['bis']}, "
                       f"{info['faktzeilen']:_} Faktzeilen, {time.time() - start:.0f} s".replace("_", "."))
+
+            if not args.ohne_aenderungen:
+                from lade_aenderungen import lade_alle
+                lade_alle(conn, args.rohdaten, args.register)
 
         versionen(conn)
         print("Prüfabfragen:")

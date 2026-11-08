@@ -21,7 +21,7 @@ Technisch zeigt das Projekt vor allem eines: wie man Daten, die sich über die Z
 | 1 | Repo-Gerüst, Docker Compose, README-Entwurf | fertig |
 | 2 | GTFS einlesen, Betriebstage auflösen, Bedienqualität | fertig |
 | 3 | PostgreSQL-Modell mit SCD2-Dimensionen | fertig |
-| 4 | Diff-Logik zwischen Ständen, Fahrplanstabilität | offen |
+| 4 | Diff-Logik zwischen Ständen, Fahrplanstabilität | gebaut, Auswertung vorläufig |
 | 5 | PySpark für das wachsende Archiv | offen |
 | 6 | Power-BI-Dashboard | offen |
 
@@ -160,6 +160,22 @@ Aus dem Stand vom 04.11.2026, ausgewertet für drei Stichtage (Di 10.11., Sa 14.
 
 ![Abfahrten je 1.000 Einwohner](docs/grafiken/abfahrten_je_einwohner.png)
 
+## Fahrplanstabilität: Was ändert sich von Stand zu Stand?
+
+`make laden` vergleicht nach den Ständen auch jedes Paar direkt aufeinanderfolgender Stände (`laden/lade_aenderungen.py`, Logik in `analyse/diff.py`). Fahrten werden nicht über ihre trip_id verbunden, sondern über Linie, Richtung, erste Station, erste Abfahrt und Betriebstag (E15). Verglichen werden nur Fahrten, die nach dem Abruf des neuen Stands beginnen (E16). Jede Änderung landet als Zeile in `fakt_aenderung`, die Kennzahlen stehen als Sichten in `sql/09_kennzahlen.sql`, die Auswertung im Notebook [notebooks/ebene2_stabilitaet.ipynb](notebooks/ebene2_stabilitaet.ipynb).
+
+**Vorläufig.** Bisher gibt es fünf Stände, also vier Standpaare (03. bis 07.11.2026). Aussagen über einzelne Linien oder Wochentage sind damit noch nicht belastbar, frühestens nach drei Wochen Archiv.
+
+**Der Fahrplan ist sehr stabil, aber nicht starr.** Je Standpaar ändern sich 0 bis 0,26 % der Fahrten im Fenster. Das erste Paar hat null Änderungen, obwohl sich der Inhalts-Hash unterscheidet: Geändert hatten sich nur Felder ohne Bedeutung für Fahrgäste.
+
+![Änderungen je Standpaar nach Art](docs/grafiken/aenderungen_je_standpaar.png)
+
+**Der trip_id-Abgleich wäre in beide Richtungen falsch.** Am 05.11. bekamen 2.742 Fahrten eine neue trip_id, meist bei gleichem Inhalt. Am 07.11. wurde eine Umleitung der Linien 44 und 47 zurückgenommen, und alle betroffenen Fahrten hatten trip_ids, die es vorher schon gab. Über die trip_id wären das Tausende Fehlalarme und gleichzeitig 389 übersehene Änderungen.
+
+**Änderungen kommen mit Vorlauf.** Keine einzige Änderung betraf bisher den selben Tag oder den Vortag. Die meisten liegen zwei bis vier Wochen voraus.
+
+![Vorlauf der Änderungen](docs/grafiken/kurzfristigkeit.png)
+
 ## Projektstruktur
 
 ```
@@ -167,11 +183,11 @@ sammler/        Sammelskript, Manifest, Laden der Landing Zone
 data/raw/       heruntergeladene Stände (nicht im Git, liegen in den Releases)
 data/           Snapshot-Register
 sql/            Sternschema, SCD2, Prüfabfragen für PostgreSQL
-laden/          Stände in PostgreSQL laden
+laden/          Stände und Änderungen in PostgreSQL laden
 spark/          PySpark-Jobs (ab Phase 5)
-analyse/        Python-Module: GTFS lesen, Betriebstage, Bedienqualität, Gemeinden
-notebooks/      Auswertungen mit Grafiken (Ebene 1)
-tests/          pytest für Betriebstag-Logik, Kennzahlen und SCD2
+analyse/        Python-Module: GTFS lesen, Betriebstage, Bedienqualität, Gemeinden, Standvergleich
+notebooks/      Auswertungen mit Grafiken (Ebene 1 und 2)
+tests/          pytest für Betriebstag-Logik, Kennzahlen, SCD2 und Standvergleich
 docs/           Entscheidungsprotokoll, Befunde, Grafiken
 ```
 

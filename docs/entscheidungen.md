@@ -152,3 +152,44 @@ Dass das kein theoretischer Unterschied ist, zeigt der Stand vom 04.11.2026: Am 
 **Koordinaten auf 5 Nachkommastellen.** Der Feed liefert 8 Nachkommastellen, das ist rund ein Millimeter. Würde ein Export einmal anders runden, gäbe es für jede Station eine neue Version, obwohl sich nichts bewegt hat. Ich runde deshalb vor dem Hashen auf 5 Stellen, in Karlsruhe gut 1 m in Nord-Süd- und 0,7 m in Ost-West-Richtung. Die kleinste echte Verschiebung in den ersten Ständen war eine Ersatzhaltestelle in Schwaigern um etwa 12 m, die bleibt damit sichtbar.
 
 **Hash statt Spaltenvergleich.** Ob sich eine Version geändert hat, vergleiche ich über einen md5-Hash aller fachlichen Attribute. Kommt ein Attribut dazu, ändert sich nur die Hash-Formel, nicht jede Vergleichsbedingung. Fehlende Werte bekommen vor dem Hashen einen festen Platzhalter, sonst wären zwei verschiedene Zeilen mit vertauschtem NULL gleich.
+
+## E15: Fahrten über einen eigenen Schlüssel verbinden, nicht über die trip_id
+
+**Das Problem.** Um zu sagen, dass sich eine Fahrt geändert hat, muss ich wissen, welche Fahrt im neuen Stand dieselbe ist wie im alten. Die naheliegende Antwort wäre die trip_id. Im KVV-Feed ist sie aber eine Planungsnummer mit Version (`1.T0.24-44-E-s26-4.10.R`). Ändert der KVV einen Plan, ersetzt er die Fahrten durch neue mit neuer trip_id, statt die alten zu ändern. In den ersten fünf Ständen sind gemeinsame trip_ids zweier Stände ausnahmslos inhaltsgleich. Über die trip_id verglichen, wäre jede Änderung "entfallen und neu", auch wenn eine Fahrt nur einen Halt mehr hat.
+
+**Der Schlüssel.** Ich verbinde Fahrten über das Fahrtmuster: Linie, Richtung, erste Station und Abfahrt an der ersten Station, auf die Sekunde. Dazu kommt der Betriebstag. Das ist der Fahrtschlüssel. Was sonst an der Fahrt hängt (die übrigen Halte und Zeiten), ist der Inhalt, den ich vergleiche.
+
+**Was der trip_id-Abgleich gemeldet hätte.** dim_standpaar führt zur Kontrolle mit, wie viele trip_ids im Fenster nur im alten bzw. nur im neuen Stand vorkommen. Am 05.11. bekamen 2.742 Fahrten eine neue trip_id, ganz überwiegend bei gleichem Inhalt. Mein Vergleich findet 305 geänderte Fahrt-Instanzen. Am 07.11. ist es umgekehrt: Eine angekündigte Umleitung der Linien 44 und 47 wurde zurückgenommen, indem die schon vorhandenen normalen Fahrten wieder an diesen Tagen fahren. Alle 110 trip_ids dieser Fahrten gab es schon im alten Stand. Ein Abgleich über trip_id sieht dort nichts, obwohl sich für Fahrgäste an 389 Fahrten der Halteverlauf ändert. Er liegt also in beide Richtungen daneben.
+
+**Doppelte Schlüssel.** Je Stand haben rund 1.000 Fahrt-Instanzen (0,3 %) denselben Schlüssel wie eine andere, meist Verstärkerfahrten oder Schulbusse, die zur selben Minute an derselben Station beginnen. Ich nummeriere sie durch (`nr`), sortiert nach Halteverlauf und Zeiten. Solange sich die Fahrten nicht ändern, bekommen sie in beiden Ständen dieselbe Nummer.
+
+**Grenze.** Verschiebt sich die erste Abfahrt selbst, ist es ein anderer Schlüssel. Die Fahrt erscheint dann als "entfallen" und "neu" statt als "zeit". In den ersten vier Standpaaren kam das einmal vor. Ich nehme das in Kauf, weil jeder weichere Schlüssel (zum Beispiel "nächste Fahrt innerhalb von fünf Minuten") falsche Paare bilden kann, und ein falsches Paar ist schwerer zu erkennen als ein ehrliches "entfallen und neu".
+
+**Was als Änderung zählt.**
+
+- Halteverlauf: andere Folge von Stationen (nach E9, ein Gleiswechsel zählt nicht).
+- Zeit: gleiche Stationen, mindestens eine Zeit um 60 Sekunden oder mehr verschoben. In den Ständen haben rund 730.000 von 3,1 Millionen Zeiten Sekunden ungleich null, ohne die Schwelle würde eine Rundung als Änderung zählen.
+- Betriebstage: das Muster gibt es in beiden Ständen, an einem bestimmten Tag aber nur in einem.
+- Neu und entfallen: das Muster gibt es im Fenster nur in einem Stand.
+
+## E16: Vergleichsfenster
+
+**Problem.** Zwei Stände decken nie denselben Zeitraum ab. Der neue fängt später an und hört unter Umständen später auf. Würde ich einfach alles vergleichen, zählte jeder Tag, der vorn herausfällt, als "entfallen" und jeder neue Tag hinten als "neu". Das ist das normale Vorrücken des Fahrplans und keine Änderung.
+
+**Festlegung.** Verglichen werden nur Fahrten, die nach dem Abruf des neuen Stands beginnen (deutsche Zeit, auf die Minute), und nur an Kalendertagen bis zum letzten Tag, den beide Stände abdecken. Was vor dem Abruf lag, konnte der neue Stand nicht mehr ändern. Was nur einer der beiden kennt, ist nicht vergleichbar.
+
+**Nur Nachbarn.** Verglichen wird jeder Stand mit seinem direkten Vorgänger. Was sich über eine Woche ändert, ergibt sich aus der Summe der Tagesvergleiche, ein Vergleich jedes Stands mit jedem brächte nichts Neues und wüchse quadratisch.
+
+**Fehlgeschlagene Abrufe.** Lag zwischen zwei Ständen ein Abruf, der fehlgeschlagen ist, steht das in `fehler_dazwischen`. Die Kurzfristigkeit für dieses Paar ist dann auf mehr als einen Tag ungenau und wird in `v_kurzfristigkeit` so markiert.
+
+**Vorlauf.** Für jede Änderung halte ich fest, wie viele Tage zwischen dem Abruf des neuen Stands (deutsches Datum) und dem Kalendertag der Fahrt liegen. Das ist die frühestmögliche Zeit, zu der jemand mit meinem Archiv die Änderung hätte sehen können. Eine Prüfabfrage meldet jede Änderung mit negativem Vorlauf, die dürfte es nach dem Fenster nicht geben.
+
+## E17: Große Fahrplanwechsel getrennt auswerten
+
+**Problem.** Mitte Dezember wechselt der Fahrplan europaweit. Dann ändern sich auf einen Schlag Tausende Fahrten. Würde dieser eine Tag in die Stabilitätsquote eingehen, wäre jede Linie, die zum Fahrplanwechsel angepasst wird, für Monate "instabil", obwohl sich ein Fahrgast darauf lange vorbereiten konnte.
+
+**Festlegung.** Ein Standpaar gilt als großer Wechsel, wenn sich mindestens 5 % der Fahrten im Fenster ändern (`ist_grosser_wechsel`). Die Sicht `v_stabilitaet_linie_gesamt` gibt die Quote je Linie einmal mit und einmal ohne diese Paare aus. Ich lösche nichts, ich trenne nur.
+
+**Warum 5 %.** In den ersten vier Paaren lag der Anteil zwischen 0 und 0,26 %. Ein normaler Tag mit einer größeren Baustelle bleibt also weit darunter. Ob 5 % zum Fahrplanwechsel passt, zeigt sich am 13.12.2026. Ist die Schwelle zu hoch oder zu niedrig, ändere ich die Konstante `GROSSER_WECHSEL_AB` und lade die Standpaare neu. Weil der Vergleich aus den ZIPs gerechnet wird, geht dabei nichts verloren.
+
+**Neue Fahrten zählen nicht als geändert.** Die Stabilitätsquote ist der Anteil der alten Fahrten, die im neuen Stand unverändert bleiben. Bekommt eine Linie zusätzliche Fahrten, wird sie dadurch nicht instabiler. Neue Fahrten stehen getrennt in `hinzu`.

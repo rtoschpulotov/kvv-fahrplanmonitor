@@ -12,48 +12,15 @@ löscht es danach wieder. Die echten Tabellen im Schema public bleiben
 unberührt.
 """
 
-import os
-import uuid
 from datetime import date, datetime, timezone
-from pathlib import Path
 
 import psycopg
 import pytest
-from dotenv import load_dotenv
 
 from lade_postgres import horizont
 
-REPO = Path(__file__).resolve().parent.parent
-load_dotenv(REPO / ".env")
-
-
-def _verbindung():
-    return psycopg.connect(
-        autocommit=True,
-        host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
-        port=os.environ.get("POSTGRES_PORT", "5433"),
-        user=os.environ.get("POSTGRES_USER", "kvv"),
-        password=os.environ.get("POSTGRES_PASSWORD", ""),
-        dbname=os.environ.get("POSTGRES_DB", "kvv_fahrplan"),
-        connect_timeout=3,
-    )
-
-
-@pytest.fixture
-def db():
-    try:
-        conn = _verbindung()
-    except psycopg.OperationalError as fehler:
-        pytest.skip(f"keine PostgreSQL-Verbindung ({fehler}). Erst `docker compose up -d`.")
-    schema = "test_" + uuid.uuid4().hex[:8]
-    conn.execute(f"CREATE SCHEMA {schema}")
-    conn.execute(f"SET search_path TO {schema}")
-    for datei in sorted((REPO / "sql").glob("0*.sql")):
-        conn.execute(datei.read_text(encoding="utf-8"))
-    yield conn
-    conn.execute(f"DROP SCHEMA {schema} CASCADE")
-    conn.close()
-
+# Die Fixture `db` steht in tests/conftest.py, weil auch die Tests für
+# Phase 4 sie brauchen.
 
 # ---------------------------------------------------------------- Hilfen
 
@@ -240,7 +207,12 @@ def test_pruefungen_ohne_treffer(db):
     scd2(db, s2)
     db.execute("UPDATE dim_stand SET horizont_von = '2026-11-04', horizont_bis = '2026-11-10' WHERE stand_sk = %s", (s2,))
     fakt(db, s2, "A")
-    assert db.execute("SELECT sum(treffer) FROM v_pruefung").fetchone()[0] == 0
+    # Nur die Prüfungen aus Phase 3. Die aus Phase 4 vermissen hier zu Recht
+    # das Standpaar, das erst der Standvergleich anlegt.
+    treffer = db.execute("SELECT sum(treffer) FROM v_pruefung WHERE pruefung IN "
+                         "('mehrfach aktuell', 'überlappende Zeiträume', 'Fakt ohne passende Version', "
+                         "'Stand ohne oder mit falschen Fakten')").fetchone()[0]
+    assert treffer == 0
 
 
 def test_pruefung_findet_doppelt_aktuelle_version(db):
