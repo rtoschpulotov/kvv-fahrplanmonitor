@@ -10,3 +10,5 @@ pytest==9.2.0
 # Gemeinden und Grafiken
 geopandas==1.2.0
 matplotlib==3.11.2
+# Phase 3: PostgreSQL
+psycopg[binary]==3.3.8

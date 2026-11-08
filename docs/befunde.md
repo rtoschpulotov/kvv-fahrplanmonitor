@@ -183,3 +183,41 @@ Vorschlag, noch zu bestätigen:
 Begründung: kein Feiertag, keine Schulferien, weit weg von der Zeitumstellung am 25.10.2026 (E8), und alle drei liegen nach dem Abruf des Stands. Es wird also der Plan ausgewertet, den der KVV zu diesem Zeitpunkt für die Zukunft veröffentlicht hat.
 
 Am Di 10.11.2026 gibt es 161.790 Abfahrten nach Kalenderzeit. 3.192 davon gehören noch zum Betriebstag 09.11., fahren also nach Mitternacht. Ohne die Umrechnung würden sie dem falschen Tag zugeschlagen.
+
+## Phase 3: Fünf Stände im Sternschema
+
+Geladen sind die fünf Stände mit Status "neu" vom 03. bis 07.11.2026 (am 05., 06. und 07.11. lief das Sammeln zusätzlich abends, ohne Änderung). Alle vier Prüfabfragen sind leer.
+
+### Sind die Schlüssel stabil?
+
+Ja. Zwischen je zwei aufeinanderfolgenden Ständen ist keine stop_id und keine route_id verschwunden. Was sich geändert hat:
+
+| Stand | Ebene | Änderung |
+|---|---|---|
+| 05.11. | Bahnsteig | Memprechtshofen B36, Bussteig um rund 12 m verschoben |
+| 06.11. | Station | Ruit Lerchenweg (Bretten) neu, mit einem Bussteig |
+| 06.11. | Bahnsteig | Schwaigern Heilbronner Str. (Ersatz) um rund 12 m verschoben |
+| 07.11. | Bahnsteig | Schwaigern wieder auf der alten Koordinate, also A, B, wieder A |
+| 07.11. | Bahnsteig | `de:08212:89:34:D` umbenannt von "KA Hauptbahnhof (Vorplatz)" in "Karlsruhe Hauptbahnhof (Vorplatz)" |
+
+Linien, Betreiber und Linienfarben sind in allen fünf Ständen gleich. Die Umbenennung am Hauptbahnhof betrifft nur einen Bussteig. Die Station darüber heißt weiterhin "KA Hauptbahnhof (Vorplatz)", der Feed ist an dieser Stelle jetzt uneinheitlich.
+
+Die Dimensionen haben deshalb nach fünf Ständen 2.079 Haltestellen- und 287 Linienversionen, alle aktuell. Die einzige neue Version ist Ruit Lerchenweg. Dass es nicht mehr sind, ist ein echter Befund und kein Fehler: Die übrigen Änderungen liegen unterhalb der Station (E14). Die Fälle "geändert", "verschwunden" und "Wiederkehr" sind mit eigenen Testdaten geprüft (`tests/test_scd2.py`), bis der echte Feed sie liefert.
+
+### Derselbe Tag in fünf Ständen
+
+Abfahrten am Di 10.11.2026 laut jedem Stand:
+
+| Stand | Abfahrten |
+|---|---:|
+| 03.11. | 161.790 |
+| 04.11. | 161.790 |
+| 05.11. | 161.790 |
+| 06.11. | 161.804 |
+| 07.11. | 161.804 |
+
+Die 161.790 sind dieselbe Zahl wie in Phase 2 (Stichtage oben), dort direkt mit Pandas gerechnet. Der Weg über Postgres verliert also nichts. Am 06.11. kamen für diesen Dienstag 14 Abfahrten dazu, alle auf der Linie SEV S7/S71 in der Stunde ab 5 Uhr an acht Stationen zwischen Rastatt und Bühl. Der KVV hat also frühe Ersatzbusfahrten nachgetragen. Genau diese Art Änderung soll Phase 4 systematisch finden.
+
+### Größe
+
+Ein Stand mit 14 Tagen Horizont sind rund 663.000 Faktzeilen und gut 60 MB (E13). Laden dauert je Stand etwa 45 Sekunden, fast alles davon ist die Abfahrten-Logik aus Phase 2.

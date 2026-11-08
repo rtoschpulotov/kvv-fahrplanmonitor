@@ -104,3 +104,51 @@ Dass das kein theoretischer Unterschied ist, zeigt der Stand vom 04.11.2026: Am 
 
 **Pro Kopf** heißt: alle Abfahrten an allen Stationen der Gemeinde im Fenster, geteilt durch die Einwohner, mal 1.000. Eine Abfahrt an einer Station mit mehreren Linien zählt so oft, wie Fahrzeuge abfahren.
 
+
+## E12: SCD2 mit Beobachtungszeit
+
+**Warum SCD2 und nicht ein Zeitstempel je Zeile.** Mit einem Zeitstempel je Zeile müsste ich für jede Frage nach einem früheren Zustand die ganze Historie lesen und selbst herausfinden, welche Zeile damals galt. Mit SCD2 hat jede Version einen Gültigkeitszeitraum, und "Wie hieß diese Haltestelle am 5. November?" ist eine einfache Bereichsabfrage. Die Fakten zeigen über den Surrogatschlüssel fest auf die Version, die zu ihrem Stand galt. Ändert sich später ein Name, bleibt eine alte Faktzeile bei ihrem alten Namen.
+
+**Beobachtungszeit, nicht fachliche Gültigkeit.** gueltig_von und gueltig_bis sind die Abrufzeitpunkte der Stände, in denen ich eine Version zuerst und nicht mehr gesehen habe. Wann der KVV eine Haltestelle wirklich umbenannt hat, weiß ich nicht. Ich weiß nur, dass sie im einen Stand noch alt und im nächsten neu hieß. Das Datum, ab dem eine Änderung laut Fahrplan gilt, ist eine zweite, andere Zeitachse (fachliche Gültigkeit). Wer beide in einer Tabelle führt, modelliert bitemporal. Das brauche ich hier nicht, aber ich muss wissen, welche der beiden Achsen meine Spalten meinen: Es ist die Systemzeit meines Archivs.
+
+**gueltig_bis ist ausschließlich.** Eine Version gilt für Zeitpunkte t mit gueltig_von <= t < gueltig_bis. Die alte Version endet genau dort, wo die neue beginnt, ohne dass beide an der Grenze gleichzeitig gelten. Mit einem einschließlichen Ende müsste ich eine Sekunde abziehen, und die Prüfung auf Überlappung würde unnötig kompliziert.
+
+**9999-12-31 statt NULL.** Die aktuelle Version endet am 9999-12-31. So funktioniert die Bereichsabfrage ohne Sonderfall, und Power BI kommt mit festen Daten besser zurecht als mit NULL. ist_aktuell gibt es trotzdem, weil `WHERE ist_aktuell` lesbarer ist. Eine CHECK-Bedingung sorgt dafür, dass beide Spalten nie auseinanderlaufen.
+
+**Kein SCD Typ 1.** Auch eine korrigierte Schreibweise wird eine neue Version. Ob eine Änderung inhaltlich bedeutend war, entscheidet die Auswertung, nicht der Ladeprozess.
+
+**Wiederkehr.** Verschwindet eine Haltestelle und taucht später wieder auf, bekommt sie eine neue Version. Zwischen dem Ende der alten und dem Beginn der neuen liegt eine Lücke, in der es sie im Feed nicht gab. Ich öffne die alte Version nicht wieder, denn dann würde die Lücke aus der Historie verschwinden. Dasselbe gilt für A, B, wieder A: Das sind drei Versionen.
+
+**SCD2 in SQL.** Der Schritt steht als zwei Anweisungen in `sql/05_scd2.sql`: ein UPDATE schließt jede aktuelle Version, zu der es im neuen Stand keine Zeile mit demselben Schlüssel und demselben Hash gibt, ein INSERT fügt jede Zeile ein, deren Schlüssel danach keine aktuelle Version hat. Damit sind alle vier Fälle abgedeckt (neu, unverändert, geändert, verschwunden). Beides läuft in der Transaktion des Stands.
+
+**Reihenfolge.** Ein älterer Stand nach einem neueren würde Versionen rückwärts schließen. Das verhindert ein Trigger auf dim_stand (`sql/04_reihenfolge.sql`), nicht meine Aufmerksamkeit.
+
+## E13: Körnung der Faktentabelle und Horizont
+
+**Körnung.** Eine Zeile je Stand, Kalendertag, Stunde, Station und Linie, mit der Zahl der Abfahrten. Das reicht für alle Fragen der Ebene 1 (Takt je Stunde, Gemeinden, Tagestypen) und für den Vergleich zweier Stände. Eine Zeile je einzelner Abfahrt wäre etwa dreimal so groß und bringt für diese Fragen nichts. Die einzelnen Fahrten braucht erst die Diff-Logik in Phase 4, und die liest sie aus den ZIPs bzw. später aus Parquet.
+
+**Kalendertag, nicht Betriebstag.** Wie in Phase 2 zählt, wann der Bus wirklich fährt (E9). Eine Fahrt um 24:30 steht am Folgetag in der Stunde 0.
+
+**Horizont von 14 Tagen.** Jeder Stand bekommt Fakten ab dem Tag seines Abrufs (deutsche Zeit) für 14 Tage, höchstens bis zum Ende des Fahrplans. Ohne Grenze hätte jeder Stand Fakten bis zum Fahrplanende. Im November sind das gut 5 Wochen, nach dem Fahrplanwechsel im Dezember ein halbes Jahr. Gemessen mit den ersten fünf Ständen:
+
+- rund 47.800 Faktzeilen je Tag,
+- 14 Tage sind rund 663.000 Zeilen und gut 60 MB je Stand (Tabelle plus Primärschlüssel),
+- ein halbes Jahr wären über 8 Millionen Zeilen und rund 800 MB je Stand.
+
+14 Tage decken zwei volle Wochen mit je einem Samstag und Sonntag ab und reichen, um für denselben Tag die Pläne mehrerer aufeinanderfolgender Stände zu vergleichen. Der Wert ist ein Parameter (`--horizont`).
+
+**Die Redundanz ist gewollt, aber groß.** Bei den ersten fünf Ständen sind von 3,3 Millionen Faktzeilen nur gut 870.000 verschiedene Kombinationen aus Tag, Stunde, Station, Linie und Anzahl. Der Rest ist derselbe Plan, nur aus einem anderen Stand. Das liegt an der Aufgabe: Ich will wissen, was jeder Stand für einen Tag gesagt hat, auch wenn es meistens dasselbe ist. Bei einem neuen Stand an vier von fünf Tagen sind das grob 1,5 GB im Monat. Für die Laufzeit dieses Projekts ist das vertretbar. Wird es zu viel, gibt es zwei Wege: einen kürzeren Horizont oder Faktzeilen mit eigenem Gültigkeitszeitraum über Stände hinweg (eine Zeile gilt von Stand a bis Stand b). Der zweite Weg spart fast alles, macht aber jede Abfrage komplizierter. Ich bleibe vorerst beim einfachen Modell.
+
+**Ein Stand, eine Transaktion.** Dimensionen und Fakten eines Stands werden zusammen festgeschrieben. Bricht das Laden der Fakten ab, sind auch die neuen Dimensionsversionen nicht da. Es gibt keinen halb geladenen Stand.
+
+## E14: Fachlicher Schlüssel und Rundung
+
+**stop_id und route_id sind stabil.** Die Aufgabenstellung hielt es für offen, ob der KVV seine IDs zwischen zwei Exporten beibehält. Geprüft mit den ersten fünf Ständen (03. bis 07.11.2026): Keine einzige stop_id und keine route_id ist verschwunden oder hat ihre Bedeutung gewechselt. Die stop_id ist im KVV-Feed die bundesweite Haltestellen-ID (DHID, zum Beispiel `de:08212:89:34:D`), die von der Haltestelle selbst kommt und nicht vom Export. Ich nehme deshalb die IDs aus dem Feed als fachliche Schlüssel und brauche keinen eigenen Schlüssel aus Name und Koordinaten. Sollte sich das ändern, zeigt es sich sofort: Alle Stationen würden in einem Stand geschlossen und neu eingefügt.
+
+**Warum trotzdem ein Surrogatschlüssel.** station_id identifiziert die Haltestelle, aber nicht ihre Version. Eine Faktzeile muss auf "Karlsruhe Hbf, wie er am 5. November hieß" zeigen können. Dafür braucht jede Version einen eigenen Schlüssel. Nebenbei ist eine Ganzzahl als Fremdschlüssel kleiner und schneller als ein Text wie `Pde:08212:89`.
+
+**Körnung der Dimension = Körnung der Fakten.** dim_haltestelle führt Stationen nach E9, keine Bahnsteige. Das hat eine Folge, die ich bewusst in Kauf nehme: Änderungen an einzelnen Bahnsteigen sieht die Dimension nicht. In den ersten fünf Ständen gab es drei solche Änderungen (verschobene Koordinaten bei zwei Ersatzhaltestellen, ein umbenannter Bussteig am Hauptbahnhof), alle unterhalb der Station. Auf Stationsebene kam nur eine Haltestelle neu dazu (Ruit Lerchenweg in Bretten, ab 06.11.2026). Wer Bahnsteige historisieren will, bräuchte eine eigene Dimension. Für meine Fragen reicht die Station.
+
+**Koordinaten auf 5 Nachkommastellen.** Der Feed liefert 8 Nachkommastellen, das ist rund ein Millimeter. Würde ein Export einmal anders runden, gäbe es für jede Station eine neue Version, obwohl sich nichts bewegt hat. Ich runde deshalb vor dem Hashen auf 5 Stellen, in Karlsruhe gut 1 m in Nord-Süd- und 0,7 m in Ost-West-Richtung. Die kleinste echte Verschiebung in den ersten Ständen war eine Ersatzhaltestelle in Schwaigern um etwa 12 m, die bleibt damit sichtbar.
+
+**Hash statt Spaltenvergleich.** Ob sich eine Version geändert hat, vergleiche ich über einen md5-Hash aller fachlichen Attribute. Kommt ein Attribut dazu, ändert sich nur die Hash-Formel, nicht jede Vergleichsbedingung. Fehlende Werte bekommen vor dem Hashen einen festen Platzhalter, sonst wären zwei verschiedene Zeilen mit vertauschtem NULL gleich.

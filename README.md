@@ -1,6 +1,6 @@
 # KVV-Fahrplanmonitor
 
-*Entwurf, Stand Phase 0. Wird mit jeder Phase weitergeschrieben.*
+*Entwurf, Stand Phase 3. Wird mit jeder Phase weitergeschrieben.*
 
 ## Worum es geht
 
@@ -20,7 +20,7 @@ Technisch zeigt das Projekt vor allem eines: wie man Daten, die sich über die Z
 | 0 | Sammelskript, täglicher Abruf mit Hash | läuft seit 2026-11-03 |
 | 1 | Repo-Gerüst, Docker Compose, README-Entwurf | fertig |
 | 2 | GTFS einlesen, Betriebstage auflösen, Bedienqualität | fertig |
-| 3 | PostgreSQL-Modell mit SCD2-Dimensionen | offen |
+| 3 | PostgreSQL-Modell mit SCD2-Dimensionen | fertig |
 | 4 | Diff-Logik zwischen Ständen, Fahrplanstabilität | offen |
 | 5 | PySpark für das wachsende Archiv | offen |
 | 6 | Power-BI-Dashboard | offen |
@@ -66,6 +66,84 @@ In MongoDB (Datenbank `kvv_landing`) liegen zwei Collections:
 
 MongoDB ist eine abgeleitete Schicht. Die Wahrheit sind Register und Releases, und `make landing` baut alles jederzeit neu auf. Warum das so ist und warum der Schlüssel der Stand und nicht der Inhalts-Hash ist, steht in E7.
 
+## Sternschema in PostgreSQL
+
+Jeder gesammelte Stand landet in einem Sternschema. Haltestellen und Linien sind Slowly Changing Dimensions Typ 2: Ändert sich ein Name, eine Koordinate oder ein Betreiber, wird die alte Version geschlossen und eine neue angelegt. So lässt sich für jeden Zeitpunkt sagen, was damals galt, und jede Faktzeile zeigt auf die Version, die zu ihrem Stand gültig war.
+
+```mermaid
+erDiagram
+    dim_stand ||--o{ fakt_abfahrten : stand_sk
+    dim_datum ||--o{ fakt_abfahrten : datum
+    dim_stunde ||--o{ fakt_abfahrten : stunde
+    dim_haltestelle ||--o{ fakt_abfahrten : haltestelle_sk
+    dim_linie ||--o{ fakt_abfahrten : linie_sk
+    dim_stand ||--o{ dim_haltestelle : stand_sk_erstmals
+    dim_stand ||--o{ dim_linie : stand_sk_erstmals
+
+    fakt_abfahrten {
+        int stand_sk PK
+        date datum PK
+        smallint stunde PK
+        int haltestelle_sk PK
+        int linie_sk PK
+        int anzahl
+    }
+    dim_stand {
+        int stand_sk PK
+        text stand_id UK
+        timestamptz abgerufen_utc UK
+        text inhalts_hash
+        date feed_von
+        date feed_bis
+        date horizont_von
+        date horizont_bis
+    }
+    dim_haltestelle {
+        int haltestelle_sk PK
+        text station_id "fachlicher Schlüssel"
+        text name
+        numeric lat
+        numeric lon
+        text gemeinde
+        text attr_hash
+        timestamptz gueltig_von
+        timestamptz gueltig_bis
+        boolean ist_aktuell
+    }
+    dim_linie {
+        int linie_sk PK
+        text route_id "fachlicher Schlüssel"
+        text kurzname
+        text verkehrsmittel
+        text betreiber
+        text attr_hash
+        timestamptz gueltig_von
+        timestamptz gueltig_bis
+        boolean ist_aktuell
+    }
+    dim_datum {
+        date datum PK
+        text wochentag
+        text tagestyp
+        boolean ist_feiertag
+        boolean ist_schulferien
+    }
+    dim_stunde {
+        smallint stunde PK
+        text band
+    }
+```
+
+Die Faktentabelle zählt Abfahrten je Stand, Kalendertag, Stunde, Station und Linie, für 14 Tage ab dem Abruf (E13). Das Schema liegt nummeriert in `sql/`, der SCD2-Schritt selbst ist SQL (`sql/05_scd2.sql`): ein UPDATE schließt, ein INSERT fügt ein, beides in der Transaktion des Stands (E12). Geladen wird so:
+
+```bash
+make start                    # Postgres muss laufen
+make laden                    # alle noch nicht geladenen Stände, in zeitlicher Reihenfolge
+make pruefen                  # nur die Prüfabfragen
+```
+
+`laden/lade_postgres.py` spielt das Schema beim ersten Mal selbst ein, überspringt Stände, die schon da sind, und lässt sich beliebig oft starten. Ein älterer Stand nach einem neueren wird von der Datenbank abgelehnt. Nach jedem Lauf zeigen vier Prüfabfragen, ob es pro Schlüssel höchstens eine aktuelle Version gibt, ob sich Zeiträume überlappen und ob jede Faktzeile ihre gültige Version findet. Beispielabfragen stehen in `sql/abfragen/beispiele.sql`, die ersten Ergebnisse in `docs/befunde.md`.
+
 ## Erste Ergebnisse: Bedienqualität
 
 Aus dem Stand vom 04.11.2026, ausgewertet für drei Stichtage (Di 10.11., Sa 14.11., So 15.11.2026). Die Rechnung steht im Notebook [notebooks/ebene1_bedienqualitaet.ipynb](notebooks/ebene1_bedienqualitaet.ipynb), die Zahlen und Prüfungen in [docs/befunde.md](docs/befunde.md).
@@ -88,11 +166,12 @@ Aus dem Stand vom 04.11.2026, ausgewertet für drei Stichtage (Di 10.11., Sa 14.
 sammler/        Sammelskript, Manifest, Laden der Landing Zone
 data/raw/       heruntergeladene Stände (nicht im Git, liegen in den Releases)
 data/           Snapshot-Register
-sql/            Schema und Abfragen für PostgreSQL (ab Phase 3)
+sql/            Sternschema, SCD2, Prüfabfragen für PostgreSQL
+laden/          Stände in PostgreSQL laden
 spark/          PySpark-Jobs (ab Phase 5)
 analyse/        Python-Module: GTFS lesen, Betriebstage, Bedienqualität, Gemeinden
 notebooks/      Auswertungen mit Grafiken (Ebene 1)
-tests/          pytest für die Betriebstag-Logik und die Kennzahlen
+tests/          pytest für Betriebstag-Logik, Kennzahlen und SCD2
 docs/           Entscheidungsprotokoll, Befunde, Grafiken
 ```
 
@@ -101,6 +180,8 @@ docs/           Entscheidungsprotokoll, Befunde, Grafiken
 Fahrplandaten: Karlsruher Verkehrsverbund, bereitgestellt über MobiData BW, Lizenz **CC0**. Es besteht keine Pflicht zur Namensnennung, ich nenne die Quelle trotzdem.
 
 Gemeindegrenzen und Einwohnerzahlen: © BKG (2026) [dl-de/by-2-0](https://www.govdata.de/dl-de/by-2-0), Datenquellen: https://sgx.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf. Verwendet wird die VG250-EW (Stand 31.12.2025), zugeschnitten auf die Gemeinden des KVV-Kerngebiets. Die Einwohnerzahlen darin stammen von Destatis. Die Datei liegt wegen ihrer Größe nicht im Repo. Für das Notebook wird sie von [gdz.bkg.bund.de](https://gdz.bkg.bund.de) geladen und neben das Repo nach `geodaten/` gelegt, oder der Pfad steht in der Umgebungsvariable `KVV_GEODATEN`. Lizenz und Stand geprüft am 05.11.2026.
+
+Feiertage und Schulferien Baden-Württemberg (`sql/02_dim_datum.sql`): Termine vom [Innenministerium BW](https://im.baden-wuerttemberg.de/de/service/feiertage), vom [Kultusministerium BW](https://km.baden-wuerttemberg.de/de/service/ferien) und für 2025/26 aus dem [Ferienkalender der KMK](https://www.kmk.org/service/ferienregelung/ferienkalender.html). Übernommen sind nur die amtlichen Termine, keine Texte. Geprüft am 08.11.2026.
 
 Code: MIT, siehe LICENSE
 

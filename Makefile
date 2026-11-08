@@ -1,7 +1,7 @@
 # Die Befehle, die ich am häufigsten brauche.
 # Autor: Rustam T.
 
-.PHONY: start stopp status installieren landing abfrage test profil
+.PHONY: start stopp status installieren landing abfrage test profil laden pruefen
 
 start:
 	docker compose up -d
@@ -31,3 +31,11 @@ test:
 # Profil eines Stands, zum Beispiel: make profil STAND=data/raw/kvv_gtfs_2026-11-04T120817Z.zip
 profil:
 	python analyse/profil.py $(STAND)
+
+# Alle noch nicht geladenen Stände ins Sternschema (Phase 3). Darf beliebig oft laufen.
+laden:
+	python laden/lade_postgres.py
+
+# Nur die Prüfabfragen auf das Sternschema
+pruefen:
+	python laden/lade_postgres.py --nur-pruefen
