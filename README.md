@@ -1,6 +1,6 @@
 # KVV-Fahrplanmonitor
 
-*Entwurf, Stand Phase 3. Wird mit jeder Phase weitergeschrieben.*
+*Entwurf, Stand Phase 5. Wird mit jeder Phase weitergeschrieben.*
 
 ## Worum es geht
 
@@ -22,7 +22,7 @@ Technisch zeigt das Projekt vor allem eines: wie man Daten, die sich über die Z
 | 2 | GTFS einlesen, Betriebstage auflösen, Bedienqualität | fertig |
 | 3 | PostgreSQL-Modell mit SCD2-Dimensionen | fertig |
 | 4 | Diff-Logik zwischen Ständen, Fahrplanstabilität | gebaut, Auswertung vorläufig |
-| 5 | PySpark für das wachsende Archiv | offen |
+| 5 | PySpark für das wachsende Archiv | fertig, Pandas bleibt Standard (E18) |
 | 6 | Power-BI-Dashboard | offen |
 
 ## Wie das Sammeln funktioniert
@@ -176,6 +176,33 @@ Aus dem Stand vom 04.11.2026, ausgewertet für drei Stichtage (Di 10.11., Sa 14.
 
 ![Vorlauf der Änderungen](docs/grafiken/kurzfristigkeit.png)
 
+## Spark für das Archiv
+
+Seit Phase 5 lässt sich der ganze Vergleich auch mit PySpark rechnen, aus Parquet statt aus den ZIPs. Spark läuft im lokalen Modus in einem eigenen Container (offizielles Image `apache/spark:4.2.1`), auf dem Rechner selbst braucht es weder Java noch Spark.
+
+```bash
+make start                    # Postgres muss laufen
+make spark-bauen              # docker compose build spark, einmalig
+make parquet                  # ZIP -> data/parquet/<datei>/stand=<id>/, dazu alle Abfahrten je Stand
+make spark-vergleich          # rechnen Pandas und Spark dasselbe? Zeile für Zeile
+make spark-aenderungen        # Änderungen mit Spark über JDBC ins selbe Sternschema
+```
+
+Ohne `make` sind es die Befehle aus dem Makefile, zum Beispiel `docker compose run --rm spark python3 spark/parquet.py`.
+
+**Gemessen, bevor gebaut.** Mit 8 Ständen (24,7 Mio. Zeilen stop_times) am 12.11.2026, 4 Kerne:
+
+| | Pandas | Spark (lokal) |
+|---|---:|---:|
+| alle 7 Standpaare vergleichen | 201 s | 390 s (+ 6 s Start) |
+| Spitze Arbeitsspeicher | 2,0 GB | 5,7 GB |
+| Ergebnis | gleich | gleich |
+| Abfrage über alle Stände (trip_id je Stand) | Schleife über alle ZIPs | 3 s |
+
+**Pandas reicht für das KVV-Archiv, und das bleibt so.** Der Vergleich arbeitet paarweise, die Arbeit je Paar wächst nicht mit dem Archiv. Spark ist auf einem einzelnen Rechner langsamer. Es lohnt sich erst für Fragen über alle Stände auf einmal und für einen Fahrplan in der Größe von ganz Baden-Württemberg (dessen Daten unter ODbL stehen, nicht unter CC0). Deshalb bleibt `make laden` bei Pandas, Spark ist die vorbereitete zweite Spur. Begründung in E18, alle Zahlen in [docs/befunde.md](docs/befunde.md).
+
+**Dasselbe Ergebnis ist bewiesen, nicht angenommen.** `spark/vergleich.py` vergleicht die Ergebnisse beider Varianten für drei Standpaare ohne Toleranz, `tests/test_spark.py` dasselbe auf konstruierten Mini-Ständen. Auf dem Weg dahin sind zwei kleine Fehler in der Pandas-Variante aus Phase 4 aufgefallen und behoben worden.
+
 ## Projektstruktur
 
 ```
@@ -184,10 +211,11 @@ data/raw/       heruntergeladene Stände (nicht im Git, liegen in den Releases)
 data/           Snapshot-Register
 sql/            Sternschema, SCD2, Prüfabfragen für PostgreSQL
 laden/          Stände und Änderungen in PostgreSQL laden
-spark/          PySpark-Jobs (ab Phase 5)
+spark/          PySpark: Dockerfile, Parquet, Abfahrten, Vergleich, JDBC-Laden, Messung
+data/parquet/   Stände als Parquet (nicht im Git, jederzeit aus data/raw neu erzeugbar)
 analyse/        Python-Module: GTFS lesen, Betriebstage, Bedienqualität, Gemeinden, Standvergleich
 notebooks/      Auswertungen mit Grafiken (Ebene 1 und 2)
-tests/          pytest für Betriebstag-Logik, Kennzahlen, SCD2 und Standvergleich
+tests/          pytest für Betriebstag-Logik, Kennzahlen, SCD2, Standvergleich und Spark
 docs/           Entscheidungsprotokoll, Befunde, Grafiken
 ```
 

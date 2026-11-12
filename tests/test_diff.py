@@ -45,7 +45,7 @@ def stand(fahrten_def, services):
             st.append({"trip_id": tid, "stop_sequence": i, "stop_id": stop,
                        "arrival_time": zeit, "departure_time": zeit, "pickup_type": 0})
     cal, dates = kalender(**services)
-    stops = pd.DataFrame({"stop_id": ["S1", "S2", "S3", "S4"], "parent_station": ["", "", "", ""]})
+    stops = pd.DataFrame({"stop_id": ["S1", "S2", "S3", "S4", "S5"], "parent_station": [""] * 5})
     s = {"calendar": cal, "calendar_dates": dates, "trips": pd.DataFrame(trips),
          "stop_times": pd.DataFrame(st), "stops": stops}
     return s, fahrtverlaeufe(s["stop_times"], s["stops"])
@@ -181,3 +181,20 @@ def test_verstaerker_mit_gleichem_schluessel_werden_unterschieden():
     assert len(doppelte_schluessel(fahrten(alt, va, FENSTER))) == 2
     aend, _, _ = vergleiche(fahrten(alt, va, FENSTER), fahrten(alt, va, FENSTER), va, va)
     assert len(aend) == 0
+
+
+def test_betroffene_haltestellen_ueber_alle_tage_vereinigt():
+    """Dasselbe Muster an zwei Tagen, jeweils anders geändert: Beide Stationen zählen.
+
+    Bis Phase 4 kam nur die erste Zeile je Gruppe in die Liste (siehe E18).
+    """
+    alt_def = {"X": ("R6", 0, "ZWEI", zeiten(9, "00:00", "10:00", "20:00"))}
+    neu_def = {"X1": ("R6", 0, "EINS", [("S1", "09:00:00"), ("S4", "09:05:00"), ("S2", "09:10:00"), ("S3", "09:20:00")]),
+               "X2": ("R6", 0, "ACHT", [("S1", "09:00:00"), ("S2", "09:10:00"), ("S3", "09:20:00"), ("S4", "09:30:00")])}
+    aend, halte, _ = vergleich(alt_def, neu_def, {"ZWEI": [17, 18]}, {"EINS": [17], "ACHT": [18]})
+    assert list(aend["art"]) == ["halteverlauf", "halteverlauf"]
+    assert set(halte["station"]) == {"S4"}
+    # Mit zwei verschiedenen neuen Stationen wird es sichtbar
+    neu_def["X2"] = ("R6", 0, "ACHT", [("S1", "09:00:00"), ("S2", "09:10:00"), ("S5", "09:15:00"), ("S3", "09:20:00")])
+    _, halte, _ = vergleich(alt_def, neu_def, {"ZWEI": [17, 18]}, {"EINS": [17], "ACHT": [18]})
+    assert set(halte["station"]) == {"S4", "S5"}

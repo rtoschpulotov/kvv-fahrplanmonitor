@@ -15,6 +15,7 @@ allein starten. Ablauf:
    (analyse/diff.py) und alles in einer Transaktion schreiben.
 
 Idempotent wie Phase 3: Ein Paar, das schon da ist, wird übersprungen.
+Mit --alle-neu werden alle Paare verworfen und neu gerechnet.
 """
 
 import sys
@@ -103,11 +104,28 @@ def vergleiche_paar(paar: dict, alt: tuple, neu: tuple):
     return fenster, len(f_alt), len(f_neu), aend, halte, je_linie, trip_ids
 
 
-def schreibe_paar(conn, paar, fenster, n_alt, n_neu, aend, halte, je_linie, trip_ids) -> int:
-    geaendert = int(je_linie["geaendert"].sum())
+def trage_standpaar_ein(cur, paar: dict, fenster: Fenster, n_alt: int, n_neu: int, geaendert: int,
+                        trip_ids: tuple[int, int]) -> int:
+    """Eine Zeile in dim_standpaar, gibt den neuen Schlüssel zurück.
+
+    Eigene Funktion, weil Pandas (hier) und Spark (spark/aenderungen.py)
+    dieselbe Zeile schreiben müssen.
+    """
     anteil = geaendert / n_alt if n_alt else 0.0
     stunden = (paar["neu_zeit"] - paar["alt_zeit"]).total_seconds() / 3600
     fenster_ab = pd.Timestamp(fenster.ab).tz_localize(BERLIN_TZ).tz_convert(timezone.utc).to_pydatetime()
+    cur.execute(
+        """INSERT INTO dim_standpaar (stand_sk_alt, stand_sk_neu, fenster_ab, fenster_bis, stunden_dazwischen,
+                                     fehler_dazwischen, fahrten_alt, fahrten_neu, geaendert, anteil_geaendert,
+                                     ist_grosser_wechsel, trip_id_nur_alt, trip_id_nur_neu)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING standpaar_sk""",
+        (paar["alt_sk"], paar["neu_sk"], fenster_ab, fenster.bis, round(stunden, 1), paar["fehler"],
+         n_alt, n_neu, geaendert, round(anteil, 5), anteil >= GROSSER_WECHSEL_AB, *trip_ids))
+    return cur.fetchone()[0]
+
+
+def schreibe_paar(conn, paar, fenster, n_alt, n_neu, aend, halte, je_linie, trip_ids) -> int:
+    geaendert = int(je_linie["geaendert"].sum())
 
     a = aend.rename(columns={"direction_id": "richtung"}).copy()
     a["kalendertag"] = pd.to_datetime(a["kalendertag"]).dt.date
@@ -124,14 +142,7 @@ def schreibe_paar(conn, paar, fenster, n_alt, n_neu, aend, halte, je_linie, trip
         h["erste_abfahrt_sek"] = h["erste_abfahrt_sek"].astype(int)
 
     with conn.transaction(), conn.cursor() as cur:
-        cur.execute(
-            """INSERT INTO dim_standpaar (stand_sk_alt, stand_sk_neu, fenster_ab, fenster_bis, stunden_dazwischen,
-                                         fehler_dazwischen, fahrten_alt, fahrten_neu, geaendert, anteil_geaendert,
-                                         ist_grosser_wechsel, trip_id_nur_alt, trip_id_nur_neu)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING standpaar_sk""",
-            (paar["alt_sk"], paar["neu_sk"], fenster_ab, fenster.bis, round(stunden, 1), paar["fehler"],
-             n_alt, n_neu, geaendert, round(anteil, 5), anteil >= GROSSER_WECHSEL_AB, *trip_ids))
-        sk = cur.fetchone()[0]
+        sk = trage_standpaar_ein(cur, paar, fenster, n_alt, n_neu, geaendert, trip_ids)
         cur.execute("TRUNCATE " + ", ".join(STG))
         if len(a):
             kopiere(cur, "stg_aenderung", a)
@@ -161,9 +172,28 @@ def lade_alle(conn: psycopg.Connection, rohordner: Path, register: Path) -> None
         cache.pop(paar["alt_id"], None)   # der alte wird nicht mehr gebraucht, der neue ist der nächste alte
 
 
+def verwerfe_alle(conn: psycopg.Connection) -> None:
+    """Alle Standpaare und ihre Änderungen löschen, damit sie neu gerechnet werden.
+
+    Nötig, wenn sich die Vergleichslogik ändert (Phase 5: betroffene
+    Haltestellen über alle Tage vereinigt). Die Stände selbst bleiben.
+    """
+    with conn.transaction():
+        conn.execute("TRUNCATE fakt_aenderung_halt, fakt_aenderung, fakt_vergleich_linie, dim_standpaar "
+                     "RESTART IDENTITY")
+
+
 if __name__ == "__main__":
+    import argparse
+
     from dotenv import load_dotenv
     from lade_postgres import verbinde
+    parser = argparse.ArgumentParser(description="Änderungen zwischen Ständen nach PostgreSQL")
+    parser.add_argument("--alle-neu", action="store_true",
+                        help="alle Standpaare verwerfen und neu vergleichen")
+    args = parser.parse_args()
     load_dotenv(REPO / ".env")
     with verbinde() as c:
+        if args.alle_neu:
+            verwerfe_alle(c)
         lade_alle(c, REPO / "data" / "raw", REPO / "data" / "snapshot_register.csv")

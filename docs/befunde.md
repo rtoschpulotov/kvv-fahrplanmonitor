@@ -277,3 +277,66 @@ Kein Abruf ist bisher fehlgeschlagen, die Messung ist also auf einen Tag genau.
 - **Erste Abfahrt verschoben.** Einmal erschien eine Fahrt als "entfallen" und "neu", weil sich ihre erste Abfahrt verschoben hatte. Das ist die bekannte Grenze des Schlüssels (E15).
 - **Umpacken.** Bisher hat der KVV die ZIP nie neu gepackt, ohne dass sich der Inhalt geändert hat. Von neun erfolgreichen Abrufen hatten vier neuen Inhalt, fünf waren unverändert.
 - **Laufzeit.** Je Standpaar etwa 20 Sekunden, fast alles davon ist Einlesen und Auflösen der Betriebstage.
+
+## Phase 5: Spark gegen Pandas
+
+Gemessen am 12.11.2026 mit 8 Ständen (03. bis 12.11.2026), auf einem Rechner mit 4 Kernen und 15 GB Arbeitsspeicher. Spark lief im Container im lokalen Modus mit 4 GB Treiberspeicher. Begründung und Einordnung in E18.
+
+### Archiv
+
+| | |
+|---|---:|
+| Stände | 8 |
+| ZIPs zusammen | 222 MB |
+| stop_times über alle Stände | 24.663.274 Zeilen |
+| dieselben Daten als Parquet | 157 MB, davon stop_times 141 MB |
+| Umwandlung ZIP → Parquet, einmal je Stand | rund 19 s |
+| alle Abfahrten eines Stands als Parquet | rund 2 Mio. Zeilen, rund 19 s |
+
+### Vergleich aller Standpaare
+
+| | Pandas | Spark |
+|---|---:|---:|
+| Start | | 6 s |
+| 7 Standpaare | 201 s | 390 s |
+| je Standpaar | 24 bis 47 s | 45 bis 64 s |
+| Spitze Arbeitsspeicher | 2,0 GB | 5,7 GB |
+| Ergebnis | gleich | gleich |
+
+Das erste Paar ist bei Pandas langsamer, weil dort zwei Stände eingelesen werden, danach jeweils nur der neue. Spark liest beide Stände jedes Mal aus Parquet, das ist billig. Die Zeit geht bei Spark in die Fenster (Sortieren je Fahrt) und in den Austausch zwischen Python und Java.
+
+**Pandas ist schneller und sparsamer, und daran ändert ein größeres KVV-Archiv nichts.** Jedes Paar braucht gleich viel, die Gesamtzeit wächst linear mit der Zahl der Stände. Ein Jahr Archiv mit rund 250 neuen Ständen wären mit Pandas grob zwei Stunden, aber nur einmal: Danach kommt pro Tag ein Paar dazu.
+
+### Gleichheit
+
+`spark/vergleich.py` für die Paare 04.11. → 05.11., 05.11. → 06.11. und 06.11. → 07.11. sowie die Abfahrten je Stunde des Stands vom 12.11.:
+
+| Tabelle | Zeilen | Ergebnis |
+|---|---:|---|
+| Änderungen 04.11. → 05.11. / 05.11. → 06.11. / 06.11. → 07.11. | 305 / 1.083 / 497 | gleich |
+| Betroffene Haltestellen | 2.409 / 625 / 241 | gleich |
+| Zählung je Linie | 273 / 272 / 273 | gleich |
+| Abfahrten je Stunde, Station und Linie (12.11.) | 667.353 | gleich |
+
+Zusätzlich stimmt die Zahl aller Abfahrten im Horizont aus `spark/abfahrten.py` für jeden der 8 Stände mit der Summe in `fakt_abfahrten` aus Phase 3 überein. Und nachdem beide Varianten nacheinander alle 7 Standpaare in PostgreSQL geladen hatten, waren die Faktentabellen je Paar identisch (md5 über alle Zeilen) und die Kennzahlen in `dim_standpaar` ebenso.
+
+### Was der Vergleich an Pandas gefunden hat
+
+- **Gleichstand bei der Nummerierung.** Rund 50 Fahrten je Stand haben denselben Schlüssel und denselben Inhalt wie eine andere. Welche `nr` 0 bekam, hing von der Zeilenfolge ab. Jetzt entscheidet die trip_id.
+- **Fehlende betroffene Haltestellen.** Am 05.11. fehlten 55, am 06.11. 106 Haltestellen in `fakt_aenderung_halt`, weil je Fahrtmuster nur die Änderung des ersten Tages zählte. Nach der Korrektur hat die Tabelle 3.574 statt 3.413 Zeilen (über alle 7 Paare).
+
+Beides steht in E18. Die Zahlen aus Phase 4 oben gelten weiter, nur die Haltestellenauswertung verschiebt sich leicht.
+
+### Neue Standpaare
+
+| Paar | Fahrten im Fenster (alt) | Änderungen |
+|---|---:|---:|
+| 07.11. → 10.11. | 314.644 | 13 |
+| 10.11. → 11.11. | 304.052 | 0 |
+| 11.11. → 12.11. | 292.025 | 100 |
+
+Am Wochenende 08./09.11. hat der KVV nichts veröffentlicht, deshalb folgt auf den 07.11. direkt der 10.11.
+
+### Eine Abfrage über alle Stände
+
+Wie viele trip_ids kommen in jedem Stand vor? Mit Spark eine Abfrage über `data/parquet/trips`, 3 Sekunden: Von 150.799 verschiedenen trip_ids stehen 146.494 (97,1 %) in allen 8 Ständen, 100 nur in einem einzigen. Die trip_id ist also über die Stände hinweg weitgehend stabil. Ändert sich eine Fahrt, bekommt sie aber eine neue (E15). Mit Pandas wäre dieselbe Frage eine Schleife über alle ZIPs.

@@ -193,3 +193,39 @@ Dass das kein theoretischer Unterschied ist, zeigt der Stand vom 04.11.2026: Am 
 **Warum 5 %.** In den ersten vier Paaren lag der Anteil zwischen 0 und 0,26 %. Ein normaler Tag mit einer größeren Baustelle bleibt also weit darunter. Ob 5 % zum Fahrplanwechsel passt, zeigt sich am 13.12.2026. Ist die Schwelle zu hoch oder zu niedrig, ändere ich die Konstante `GROSSER_WECHSEL_AB` und lade die Standpaare neu. Weil der Vergleich aus den ZIPs gerechnet wird, geht dabei nichts verloren.
 
 **Neue Fahrten zählen nicht als geändert.** Die Stabilitätsquote ist der Anteil der alten Fahrten, die im neuen Stand unverändert bleiben. Bekommt eine Linie zusätzliche Fahrten, wird sie dadurch nicht instabiler. Neue Fahrten stehen getrennt in `hinzu`.
+
+## E18: Spark für das Archiv, obwohl Pandas heute noch reicht
+
+**Erst gemessen.** Bevor ich etwas umgebaut habe, habe ich die Pandas-Variante über das ganze Archiv gemessen (`analyse/messung.py`). Am 12.11.2026 waren es 8 Stände, 222 MB ZIPs und zusammen 24,7 Millionen Zeilen stop_times. Der Vergleich aller 7 Standpaare dauerte 201 Sekunden, der Arbeitsspeicher lag nie über 2 GB. Dieselbe Arbeit mit Spark im lokalen Modus aus Parquet: 390 Sekunden plus 6 Sekunden für den Start, Spitze 5,7 GB (Python und Java-VM zusammen, gemessen auf 4 Kernen und 15 GB).
+
+**Das ehrliche Ergebnis: Pandas reicht.** Der Vergleich arbeitet paarweise. Es liegen nie mehr als zwei Stände im Speicher, egal wie groß das Archiv wird. Ein Paar braucht mit Pandas rund 25 Sekunden und 2 GB, heute wie in einem Jahr. Das Archiv wächst, die Arbeit je Schritt nicht. Spark ist auf einem Rechner sogar langsamer, weil es für viele Rechner gebaut ist: Es plant, verteilt auf Partitionen, sortiert für jedes Fenster und schickt Daten zwischen Python und Java hin und her. Bei 3 Millionen Zeilen je Stand kostet das mehr, als die Verteilung auf vier Kerne bringt.
+
+**Warum Spark trotzdem.** Aus zwei Gründen, beide vorbereitend und nicht "weil es schneller ist":
+
+- *Abfragen über alle Stände auf einmal.* Pandas kann nur Stand für Stand. Die Frage "In wie vielen Ständen kommt jede trip_id vor?" ist mit Spark eine Abfrage über `data/parquet/trips` (3 Sekunden), mit Pandas eine Schleife über alle ZIPs. Solche Fragen werden mit dem Archiv mehr, nicht weniger.
+- *Ganz Baden-Württemberg.* MobiData BW bietet die Soll-Fahrplandaten für das ganze Land als GTFS an. Damit läge ein einzelner Stand um ein Vielfaches über dem KVV, und ein Paar passt irgendwann nicht mehr in den Speicher eines Laptops. Dann zahlt sich aus, dass derselbe Code auf einem Cluster laufen kann. Achtung bei diesem Schritt: Der landesweite Datensatz steht laut MobiData BW unter der Open Database License (ODbL), nicht unter CC0 wie der KVV-Feed. Die ODbL verlangt Namensnennung, und eine abgeleitete Datenbank, die ich weitergebe, muss wieder unter der ODbL stehen. Ein öffentliches Archiv der Landesdaten wäre also eine eigene Lizenzfrage.
+
+**Lokal, kein Cluster.** Spark läuft mit `local[*]` in einem Container. Treiber und Executor sind ein Prozess, sein Speicher (`spark.driver.memory`, Standard 4 GB, einstellbar über `KVV_SPARK_SPEICHER`) ist der ganze Spark-Speicher. Nach jedem Join teilt Spark standardmäßig in 200 Teile, ich nehme 16, weil 200 Häppchen bei dieser Datenmenge mehr Verwaltung als Arbeit sind.
+
+**Image und Versionen.** Offizielles Image `apache/spark:4.2.1-scala2.13-java21-python3-ubuntu`. 4.3.0 war beim Bau gerade eine Woche alt, für ein Projekt, das funktionieren soll, nehme ich die Version davor. Java ist im Image, auf dem Windows-Rechner muss nichts installiert werden. Das Image bringt Python 3.10 mit, pandas 3 braucht aber 3.11. Im Container läuft deshalb pandas 2.3.3. Alle Pandas-Tests laufen mit beiden Versionen grün. Der JDBC-Treiber für PostgreSQL (42.7.14) wird beim Bauen in `/opt/spark/jars` gelegt, damit Spark ohne Internetzugriff zur Laufzeit auskommt.
+
+**Parquet als Zwischenformat.** Die CSVs im ZIP haben keine Typen, keine Kompression je Spalte und lassen sich nicht in Teilen lesen. Parquet speichert spaltenweise mit Typen. Wer nur `trip_id` braucht, liest nur diese Spalte. Die 8 Stände sind als Parquet 157 MB statt 222 MB ZIP, obwohl ZIP ebenfalls komprimiert. Abgelegt wird nach der Vorgabe `data/parquet/<datei>/stand=<id>/`. An diesem Ordnernamen erkennt Spark die Partition und liefert beim Lesen des ganzen Ordners die Spalte `stand` mit.
+
+**Eine Datei je Stand und Tabelle.** Spark schreibt sonst je Partition eine Datei. Bei 16 Partitionen und 12 Tabellen wären das bei 8 Ständen über 1.500 kleine Dateien, die jede für sich geöffnet werden müssen. Ein Stand ist klein genug für eine Datei.
+
+**Idempotenz über `_SUCCESS`, nicht über MongoDB.** Spark legt `_SUCCESS` erst an, wenn alle Dateien einer Tabelle geschrieben sind. Fehlt die Datei, war der Lauf unvollständig, und die Tabelle wird überschrieben. Das Feld `verarbeitet_am` in MongoDB (E7) habe ich bewusst nicht genommen: Es hieße, dass Parquet nur entsteht, wenn MongoDB läuft, und dass beide auseinanderlaufen können, wenn jemand `data/parquet` löscht. So gilt: Was auf der Platte liegt, ist die Wahrheit.
+
+**CSV lesen wie Pandas.** Zwei Unterschiede musste ich ausgleichen. Pandas liest leere Felder bei mir als leeren Text (`keep_default_na=False`), Spark als NULL. In allen Tabellen außer stop_times ersetze ich NULL deshalb durch `""`. In stop_times werden `stop_sequence`, `pickup_type` und `drop_off_type` zu Zahlen, und dort bleibt NULL erhalten, weil "keine Angabe" bei pickup_type etwas anderes ist als 0.
+
+**Zeiten über 24 Uhr.** Wie in Phase 2: Sekunden seit Beginn des Betriebstags, nie Zeitstempel. Die Sitzung läuft zusätzlich in UTC, damit Spark beim Umwandeln von Daten keine Zeitzone des Rechners einrechnet.
+
+**Ins selbe Sternschema, über Staging.** Spark schreibt die Ergebnisse über JDBC in die Staging-Tabellen aus Phase 4. Die Fakten entstehen danach in einer einzigen Transaktion durch dieselbe Prozedur `lade_aenderung()`. Würde Spark direkt in die Faktentabellen schreiben, wäre jede Partition eine eigene Transaktion, und ein Abbruch hinterließe ein halbes Standpaar.
+
+**Gleichheit beweisen, nicht annehmen.** `spark/vergleich.py` rechnet drei Standpaare (zusammen jede Änderungsart) mit beiden Varianten und vergleicht die Ergebnisse Zeile für Zeile, ohne Rundung und Toleranz. Dazu die Abfahrten je Stunde eines Stands. `tests/test_spark.py` macht dasselbe auf den Mini-Ständen aus den Tests. Am Ende habe ich beide Varianten in die Datenbank geladen und die Fakten je Standpaar über einen md5-Hash verglichen: identisch.
+
+**Was der Vergleich an Pandas gefunden hat.** Beim Übersetzen sind zwei Schwächen der Phase-4-Logik aufgefallen, die ich in `analyse/diff.py` behoben habe:
+
+- *Gleichstand bei der Nummerierung (E15).* Haben zwei Fahrten denselben Schlüssel und denselben Inhalt, entschied bisher die zufällige Reihenfolge der Zeilen, welche `nr` 0 und welche 1 bekommt. Das betraf rund 50 Fahrten je Stand. Am Ergebnis änderte es nichts, weil beide Fahrten gleich sind, aber die trip_id an der Änderung hätte je nach Lauf wechseln können. Jetzt entscheidet bei Gleichstand die trip_id.
+- *Betroffene Haltestellen.* Hatte dasselbe Fahrtmuster an verschiedenen Tagen verschiedene Änderungen, kam nur die erste in `fakt_aenderung_halt`. Am 05.11. fehlten dadurch 55, am 06.11. 106 Haltestellen. Jetzt ist es die Vereinigung über alle Tage. Die Standpaare aus Phase 4 müssen deshalb einmal neu geladen werden (`--alle-neu`).
+
+Beides hätte ich ohne die Pflicht, ein exakt gleiches Ergebnis zu zeigen, nicht bemerkt.

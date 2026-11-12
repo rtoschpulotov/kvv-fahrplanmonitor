@@ -9,3 +9,6 @@ __pycache__/
 .venv/
 .ipynb_checkpoints/
 .pytest_cache/
+
+# Phase 5: Parquet-Zwischenstufe, lässt sich jederzeit aus data/raw neu erzeugen
+data/parquet/

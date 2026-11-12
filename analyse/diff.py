@@ -122,8 +122,13 @@ def eindeutig(f: pd.DataFrame) -> pd.DataFrame:
     selben Tag (zum Beispiel ein Verstärkerbus) unterscheide ich über eine
     laufende Nummer, sortiert nach ihrem Halteverlauf. So ist die Zuordnung
     in beiden Ständen gleich, solange sich die Fahrten nicht ändern.
+
+    Haben zwei Fahrten denselben Schlüssel und denselben Verlauf (je Stand
+    rund 50 Fälle), entscheidet die trip_id. Ohne sie hing die Nummer von der
+    Sortierreihenfolge ab, die Pandas bei Gleichstand nicht festlegt. Für das
+    Ergebnis war das egal, für den exakten Vergleich mit Spark (Phase 5) nicht.
     """
-    f = f.sort_values(SCHLUESSEL + ["sortierung"]).copy()
+    f = f.sort_values(SCHLUESSEL + ["sortierung", "trip_id"], kind="stable").copy()
     f["nr"] = f.groupby(SCHLUESSEL, sort=False).cumcount()
     return f
 
@@ -217,19 +222,23 @@ def vergleiche(alt: pd.DataFrame, neu: pd.DataFrame, verlauf_alt: pd.DataFrame, 
 
     # Betroffene Stationen je Muster und Art. Bei neu/entfallen/betriebstage
     # ist jede Station der Fahrt betroffen, bei Inhaltsänderungen nur die,
-    # an denen sich etwas geändert hat.
-    for (mu, art), gruppe in aend.groupby([aend[MUSTER].apply(tuple, axis=1), "art"]) if len(aend) else []:
-        r = gruppe.iloc[0]
-        if art in ("halteverlauf", "zeit"):
+    # an denen sich etwas geändert hat. Über alle Tage eines Musters wird
+    # vereinigt: Fährt dasselbe Muster an zwei Tagen mit verschiedenen
+    # Fahrtversionen, zählen die Stationen beider. (Bis Phase 4 nahm ich nur
+    # die erste Zeile je Gruppe. Beim Nachbau in Spark fiel auf, dass dabei
+    # Stationen fehlten, am 06.11. waren es 106.)
+    for _, r in aend.iterrows():
+        if r["art"] in ("halteverlauf", "zeit"):
             stationen = cache[(r["trip_id_alt"], r["trip_id_neu"])][3]
+        elif pd.notna(r["trip_id_neu"]):
+            stationen = vn.loc[r["trip_id_neu"], "stationen"]
         else:
-            tid = r["trip_id_neu"] if pd.notna(r["trip_id_neu"]) else r["trip_id_alt"]
-            v = vn if pd.notna(r["trip_id_neu"]) else va
-            stationen = sorted(set(v.loc[tid, "stationen"]))
-        for s in stationen:
-            halte.append({"route_id": mu[0], "direction_id": mu[1], "erste_station": mu[2],
-                          "erste_abfahrt_sek": mu[3], "art": art, "station": s})
-    halte = pd.DataFrame(halte, columns=MUSTER + ["art", "station"]).drop_duplicates()
+            stationen = va.loc[r["trip_id_alt"], "stationen"]
+        for s in set(stationen):
+            halte.append({"route_id": r["route_id"], "direction_id": r["direction_id"],
+                          "erste_station": r["erste_station"], "erste_abfahrt_sek": r["erste_abfahrt_sek"],
+                          "art": r["art"], "station": s})
+    halte = pd.DataFrame(halte, columns=MUSTER + ["art", "station"]).drop_duplicates(ignore_index=True)
 
     # Je Linie: Grundlage für die Stabilitätsquote
     # Geändert heißt hier: Eine Fahrt des alten Stands gibt es so nicht mehr.

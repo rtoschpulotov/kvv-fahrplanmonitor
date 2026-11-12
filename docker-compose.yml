@@ -1,8 +1,10 @@
 # Lokale Infrastruktur für die Verarbeitung.
 # Autor: Rustam T.
 #
-# Bewusst nur zwei Dienste für den Anfang. Spark kommt in Phase 5 dazu, wenn
-# das Archiv so groß ist, dass Pandas nicht mehr reicht. Einen Scheduler-
+# Zwei Dienste laufen dauerhaft (Postgres, MongoDB). Spark kam in Phase 5 dazu,
+# aber nur als Werkzeug zum Aufrufen: Der Dienst steht im Profil "spark" und
+# startet deshalb nicht bei "docker compose up -d" mit. Er läuft nur mit
+# "docker compose run --rm spark ..." und ist danach wieder weg. Einen Scheduler-
 # Container gibt es nicht, weil das Sammeln in GitHub Actions läuft und nicht
 # davon abhängen soll, ob bei mir gerade Docker läuft.
 #
@@ -45,6 +47,26 @@ services:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       retries: 5
+
+  # Spark im lokalen Modus (Phase 5, E18). Das Image baue ich selbst auf dem
+  # offiziellen apache/spark auf, siehe spark/Dockerfile. Der ganze Projektordner
+  # wird eingehängt, damit die Jobs data/raw lesen und data/parquet schreiben.
+  # Postgres erreicht der Container über den Dienstnamen und den inneren Port
+  # 5432, nicht über 127.0.0.1:5433 wie vom Windows-Rechner aus.
+  spark:
+    build: ./spark
+    image: kvv-spark:4.2.1
+    profiles: ["spark"]
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+    volumes:
+      - ./:/opt/kvv
+    working_dir: /opt/kvv
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:

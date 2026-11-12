@@ -12,3 +12,5 @@ geopandas==1.2.0
 matplotlib==3.11.2
 # Phase 3: PostgreSQL
 psycopg[binary]==3.3.8
+# Phase 5: Messung von Laufzeit und Arbeitsspeicher
+psutil==7.2.2
